@@ -120,10 +120,12 @@ class CartController extends Controller
     // ✅ Remove an item from the cart
     public function removeFromCart(Request $request)
     {
+        //print_r($request->all()); exit;
         // $request->validate([
         //     'user_id' => 'required|string',
         //     'product_id' => 'required|string',
         // ]);
+        //echo $request->user_id; exit;
 
         DB::delete(
             'DELETE FROM cart_items WHERE user_id = ? AND product_id = ?',
@@ -153,6 +155,25 @@ class CartController extends Controller
         return response()->json([
             'status' => true,
             'message' => 'Cart item quantity updated successfully'
+        ], 200);
+    }
+
+    public function updateTempSessionItemQuantity(Request $request)
+    {
+        // $request->validate([
+        //     'user_id' => 'required|string',
+        //     'product_id' => 'required|string',
+        //     'quantity' => 'required|integer|min:1',
+        // ]);
+
+        DB::update(
+            'UPDATE temp_checkout_sessions SET quantity = ?, updated_at = ? WHERE session_id = ?',
+            [$request->quantity, now(), $request->session_id]
+        );
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Buy Now item quantity updated successfully'
         ], 200);
     }
 }

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
+use Illuminate\Support\Str;
 
 class OrderDetailsController extends Controller
 {
@@ -156,4 +157,116 @@ class OrderDetailsController extends Controller
             ], 500);
         }
     }
+
+    public function storeTempCheckoutSession(Request $request){
+        $data = $request->all();
+        $uuid = Str::uuid();
+        try {
+            $productDetails = DB::select(
+                'SELECT * FROM products WHERE _id = ? LIMIT 1',
+                [$request->product_id]
+            );
+            $images = [];
+            if (!empty($productDetails[0]->images)) {
+                if (is_string($productDetails[0]->images)) {
+                    $decoded = json_decode($productDetails[0]->images, true);
+                    if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+                        $images = $decoded;
+                    }
+                } elseif (is_array($productDetails[0]->images)) {
+                    $images = $productDetails[0]->images;
+                }
+            }
+            $singleImage = !empty($images) ? $images[0] : null;
+
+            $existingSessionData = DB::select('select count(*) as totalCount from temp_checkout_sessions');
+            if($existingSessionData[0]->totalCount > 0){
+                DB::update('UPDATE temp_checkout_sessions SET current_status = 0'); 
+            }
+            DB::insert('INSERT INTO temp_checkout_sessions (session_id, product_id, user_id, user_email, quantity, name, description, image, price, current_status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())', [
+                $uuid,
+                $request->product_id,
+                $request->user_id,
+                $request->user_email,
+                1, // for now making the quantity as static but will later change it to dynamic
+                $productDetails[0]->name,
+                $productDetails[0]->description,
+                $singleImage,
+                $productDetails[0]->price,
+                1
+            ]);
+            return response()->json([
+                'success' => true,
+                'message' => 'Temporary checkout session stored successfully',
+                'session_id' => $uuid
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error storing temporary checkout session: ' . $e->getMessage()
+            ], 500);
+        }
+
+    }
+
+    public function makeAllTempSessionsInactive(){
+        try {
+            DB::update('UPDATE temp_checkout_sessions SET current_status = 0'); 
+            return response()->json([
+                'success' => true,
+                'message' => 'All temporary checkout sessions marked as inactive successfully'
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error updating temporary checkout sessions: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function getTempSessionData($sessionId)
+{
+    try {
+        // Fetch session record (validate session exists)
+        $session = DB::table('temp_checkout_sessions')
+            ->where('session_id', $sessionId)
+            ->first();
+
+        if (!$session) {
+            return response()->json([
+                'success' => true,
+                'data' => [], // ✅ Return empty array instead of 404
+            ], 200);
+        }
+
+        // Fetch only active record for this session
+        $newItem = DB::select(
+            'SELECT * FROM temp_checkout_sessions WHERE session_id = ? AND current_status = 1 LIMIT 1',
+            [$sessionId]
+        );
+
+        // ✅ Safely handle empty result set
+        if (!empty($newItem) && isset($newItem[0])) {
+            return response()->json([
+                'success' => true,
+                'data' => $newItem[0],
+            ], 200);
+        }
+
+        // ✅ Return empty array when no active record found
+        return response()->json([
+            'success' => true,
+            'data' => [],
+        ], 200);
+
+    } catch (\Exception $e) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Error fetching checkout session',
+            'error' => $e->getMessage(),
+        ], 500);
+    }
+}
+
 }
