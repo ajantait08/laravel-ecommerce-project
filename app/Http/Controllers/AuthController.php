@@ -35,14 +35,16 @@ class AuthController extends Controller
         ]);
 
         // ✅ Generate token
-        $token = $user->createToken('auth_token')->plainTextToken;
+        //$token = $user->createToken('auth_token')->plainTextToken;
 
-        return response()->json([
-            'status' => true,
-            'message' => 'User registered successfully',
-            'user' => $user,
-            'token' => $token,
-        ], 201);
+        // return response()->json([
+        //     'status' => true,
+        //     'message' => 'User registered successfully',
+        //     'user' => $user,
+        //     'token' => $token,
+        // ], 201);
+
+        return redirect()->route('login')->with('success', 'Registration successful! Please login.');
     }
 
     public function login(Request $request)
@@ -63,12 +65,14 @@ class AuthController extends Controller
 
     $token = $user->createToken('auth_token')->plainTextToken;
 
-    return response()->json([
-        'status' => true,
-        'message' => 'Login successful',
-        'user' => $user,
-        'token' => $token
-    ]);
+    // return response()->json([
+    //     'status' => true,
+    //     'message' => 'Login successful',
+    //     'user' => $user,
+    //     'token' => $token
+    // ]);
+
+    return redirect()->route('dashboard')->with('success', 'Login Successful !, Welcome to Dashboard !');
 }
 
 public function me(Request $request)
