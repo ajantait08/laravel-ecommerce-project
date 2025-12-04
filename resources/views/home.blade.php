@@ -1,10 +1,10 @@
 @extends('layouts.master')
 
-@section('title', 'Dashboard')
+@section('title', 'Lead Page')
 
 @section('content')
 
-@include('components.navbar', ['cartitems' => $cartitems])
+@include('components.navbar',['cartitems' => $cartitems])
 
 {{-- <div class="p-6">
     <h1 class="text-2xl font-bold">Welcome to Dashboard</h1>

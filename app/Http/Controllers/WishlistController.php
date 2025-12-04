@@ -78,15 +78,15 @@ public function getWishlist($userId)
         ->orderBy('wishlists.created_at', 'desc')
         ->get();
 
-    $sanitized = $wishlist->map(function ($item) {
-        
+    return $wishlist->map(function ($item) {
+        $item->is_wishlisted = true;
         $images = is_string($item->images) ? json_decode($item->images, true) : $item->images;        
         $item->image[] = !empty($images) ? $images[0] : null;
         unset($item->images);
         return $item;
     });
 
-    return response()->json(['wishlist' => $sanitized, 'ok' => true]);
+    //return response()->json(['wishlist' => $sanitized, 'ok' => true]);
 }
 
 }

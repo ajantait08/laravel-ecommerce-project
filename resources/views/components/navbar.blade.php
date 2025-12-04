@@ -1,7 +1,13 @@
 @php
-    $user = session('user');                 // logged-in user from session
-    $cart = session('cart', []);            // cart from session
-    $cartCount = count($cart);              // total items
+    $user = session('user');
+    //dd($user);                 // logged-in user from session
+    $cart = session('cart', []);
+    if($cartitems){            // cart from session    
+    $cartCount = count($cartitems); // total items
+    }
+    else{
+    $cartCount = 0;
+    }
 @endphp
 
 <nav class="flex items-center justify-between px-6 md:px-16 lg:px-32 py-3 border-b border-gray-300 text-gray-700">
@@ -14,7 +20,7 @@
     {{-- Links --}}
     <div class="flex items-center gap-4 lg:gap-8 max-md:hidden">
 
-        <a href="/" class="hover:text-gray-900 transition">Home</a>
+        <a href="{{ $user ? '/dashboard' : '/' }}" class="hover:text-gray-900 transition">Home</a>
         <a href="/all-products" class="hover:text-gray-900 transition">Shop</a>
 
         {{-- Wishlist - redirect to login if not logged in --}}
@@ -31,10 +37,10 @@
 
         {{-- Cart Icon --}}
         @if (!session('isBuyNowActive'))
-            <button onclick="toggleCart()" class="relative text-xl">
+            <button onclick="openCart()" class="relative text-xl">
                 🛒
                 @if ($cartCount > 0)
-                    <span class="absolute -top-2 -right-2 bg-red-600 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center">
+                    <span id="cart-items-count" class="absolute -top-2 -right-2 bg-red-600 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center">
                         {{ $cartCount }}
                     </span>
                 @endif
@@ -42,7 +48,7 @@
         @endif
 
         {{-- Slide Cart Component --}}
-        @include('components.slide-cart')
+        @include('components.slide-cart',['cartitems' => $cartitems ?? []])
 
         {{-- Seller Dashboard --}}
         @if (session('isSeller'))
@@ -56,7 +62,7 @@
             <div class="flex items-center gap-3">
                 <div class="flex items-center gap-2 border px-3 py-1 rounded-full cursor-pointer hover:bg-gray-100 transition"
                     style="background-color: orange;">
-                    <img src="{{ $user['avatar'] ?? asset('assets/user_icon.png') }}"
+                    <img src="{{ $user['avatar'] ?? asset('assets/user_icon.svg') }}"
                          alt="user"
                          width="24"
                          height="24"
@@ -80,10 +86,10 @@
 </nav>
 
 {{-- JS for Opening Cart --}}
-<script>
+{{-- <script>
     function toggleCart() {
         const cartElement = document.getElementById('slideCart');
         cartElement.classList.toggle('hidden');
         cartElement.classList.toggle('translate-x-0');
     }
-</script>
+</script> --}}

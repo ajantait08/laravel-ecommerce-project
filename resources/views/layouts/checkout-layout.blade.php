@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>@yield('title', 'My Website')</title>
+    <title>@yield('title', 'Checkout')</title>
 
     {{-- Tailwind / CSS --}}
     {{-- <link rel="stylesheet" href="{{ asset('css/app.css') }}"> --}}
@@ -24,6 +24,7 @@
     {{-- Footer --}}
     {{-- @include('components.footer') --}}
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    
     <script>
         function toggleWishlist(productId, productName) {
             const userId = "{{ session('user.id') }}";
@@ -76,6 +77,14 @@
 
 <script>
 
+    const CART_ADD_URL = "{{ url('/cart/add') }}";
+    const CSRF = "{{ csrf_token() }}";
+    const userId = "{{ session('user.id') }}";
+    const CART_REMOVE_URL = "{{ url('/cart/remove') }}";
+    const CART_INC_URL = "{{ url('/cart/increment') }}";
+    const CART_DEC_URL = "{{ url('/cart/decrement') }}";
+    const CART_CONTENTS_URL = "{{ url('/cart/contents') }}";
+
     // open/close
     function openCart() {
         document.getElementById('cart-overlay').classList.remove('hidden');
@@ -94,14 +103,30 @@
 
     // load cart via AJAX
     async function loadCart() {
-        const res = await fetch(CART_CONTENTS_URL);
+        if (!userId) {
+            alert("Please login to add items to cart");
+            window.location.href = "/login";
+            return;
+        }
+        
+        const res = await fetch(CART_CONTENTS_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': CSRF
+            },
+            body: JSON.stringify({user_id: userId})
+        });
+        //const res = await fetch(CART_CONTENTS_URL);
         if (!res.ok) return;
         const data = await res.json();
+
+        //console.log("Cart data:", data);
 
         const itemsEl = document.getElementById('cart-items');
         itemsEl.innerHTML = '';
 
-        if (!data.items || data.items.length === 0) {
+        if (!data || data.length === 0) {
             document.getElementById('cart-empty-msg').style.display = 'block';
             document.getElementById('cart-subtotal').innerText = '₹0.00';
             document.getElementById('cart-total').innerText = '₹0.00';
@@ -113,14 +138,14 @@
         }
 
         let subtotal = 0;
-        data.items.forEach(item => {
+        data.forEach(item => {
             subtotal += (item.price * item.quantity);
 
             const itemHtml = document.createElement('div');
             itemHtml.className = 'flex items-center justify-between mb-3 border-b pb-3';
             itemHtml.innerHTML = `
                 <div class="flex items-center space-x-3">
-                    ${item.image ? `<img src="/storage/${item.image}" class="w-16 h-16 object-cover rounded">` : `<div class="w-16 h-16 bg-gray-200 rounded"></div>`}
+                    ${item.image ? `<img src="${item.image}" class="w-16 h-16 object-cover rounded">` : `<div class="w-16 h-16 bg-gray-200 rounded"></div>`}
                     <span class="font-medium w-36">${escapeHtml(item.name)}</span>
                 </div>
 
@@ -130,12 +155,12 @@
                     </div>
 
                     <div class="flex items-center space-x-2">
-                        <button onclick="decrementQuantity(${item.id})" class="px-2 py-1 bg-gray-200 rounded">-</button>
-                        <span id="qty-${item.id}">${item.quantity}</span>
-                        <button onclick="incrementQuantity(${item.id})" class="px-2 py-1 bg-gray-200 rounded">+</button>
+                        <button onclick="decrementQuantity('${item.product_id}',${item.quantity})" class="px-2 py-1 bg-gray-200 rounded">-</button>
+                        <span id="qty-${item.product_id}">${item.quantity}</span>
+                        <button onclick="incrementQuantity('${item.product_id}',${item.quantity})" class="px-2 py-1 bg-gray-200 rounded">+</button>
                     </div>
 
-                    <button onclick="removeFromCart(${item.id})" class="text-red-500 text-sm">Remove</button>
+                    <button onclick="removeFromCart('${item.product_id}')" class="text-red-500 text-sm">Remove</button>
                 </div>
             `;
             itemsEl.appendChild(itemHtml);
@@ -157,59 +182,90 @@
     }
 
     async function addToCart(productId, qty = 1) {
+        // check user logged in
+        if (!userId) {
+            alert("Please login to add items to cart");
+            window.location.href = "/login";
+            return;
+        }
+
         const res = await fetch(CART_ADD_URL, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'X-CSRF-TOKEN': CSRF
             },
-            body: JSON.stringify({ product_id: productId, qty })
+            body: JSON.stringify({ product_id: productId, qty , user_id: userId })
         });
         const data = await res.json();
-        await loadCart();
-
-        openCart();
+        updateCartCount();
+        await loadCart();        
         // optionally show feedback
+        openCart();
     }
 
     async function removeFromCart(productId) {
+        if (!userId) {
+            alert("Please login to add items to cart");
+            window.location.href = "/login";
+            return;
+        }
+        //console.log("Entered Remove From Cart !");
         const res = await fetch(CART_REMOVE_URL, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'X-CSRF-TOKEN': CSRF
             },
-            body: JSON.stringify({ product_id: productId })
+            body: JSON.stringify({ product_id: productId , user_id : userId })
         });
+        updateCartCount();
         await loadCart();
     }
 
-    async function incrementQuantity(productId) {
+    function updateCartCount() {
+    $.ajax({
+        url: "/cart/count",
+        type: "GET",
+        success: function (res) {
+            $("#cart-items-count").text(res.count);
+        }
+    });
+    }
+
+    async function incrementQuantity(productId,qty) {
+        const reqQty = qty + 1;
         const res = await fetch(CART_INC_URL, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'X-CSRF-TOKEN': CSRF
             },
-            body: JSON.stringify({ product_id: productId })
+            body: JSON.stringify({ product_id: productId , quantity: reqQty , user_id : userId })
         });
         const data = await res.json();
-        document.getElementById('qty-' + productId).innerText = data.item.quantity;
+        document.getElementById('qty-' + productId).innerText = reqQty;
         loadCart();
     }
 
-    async function decrementQuantity(productId) {
+    async function decrementQuantity(productId,qty) {
+        if (qty <= 1) {
+            // Remove item if qty is 0 or less
+            await removeFromCart(productId);
+            return;            
+        }
+        const reqQty = qty - 1;
         const res = await fetch(CART_DEC_URL, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'X-CSRF-TOKEN': CSRF
             },
-            body: JSON.stringify({ product_id: productId })
+            body: JSON.stringify({ product_id: productId , quantity: reqQty , user_id : userId})
         });
         const data = await res.json();
         if (!data.error) {
-            document.getElementById('qty-' + productId).innerText = data.item.quantity;
+            document.getElementById('qty-' + productId).innerText = reqQty;
         }
         loadCart();
     }

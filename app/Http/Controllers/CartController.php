@@ -8,16 +8,29 @@ use Illuminate\Support\Facades\DB;
 class CartController extends Controller
 {
     // ✅ Get all cart items for a specific user
-    public function getCartItems($user_id)
+    public function getCartItemsNew($user_id)
     {
         //echo 'reached here @#'; exit;
         $items = DB::select('SELECT * FROM cart_items WHERE user_id = ?', [$user_id]);
 
-        return response()->json([
-            'status' => true,
-            'items' => $items ?? []
-        ], 200);
+        return $items ?? [];
     }
+
+    public function getCartItems(Request $request)
+    {
+        //echo 'reached here @#'; exit;
+        $items = DB::select('SELECT * FROM cart_items WHERE user_id = ?', [$request->user_id]);
+
+        return $items ?? [];
+    }
+
+    // public function getCartItems(Request $request)
+    // {
+    //     //echo 'reached here @#'; exit;
+    //     $items = DB::select('SELECT * FROM cart_items WHERE user_id = ?', [$request->user_id]);
+
+    //     return $items ?? [];
+    // }
 
     // ✅ Add item to cart or update existing item quantity
     public function addToCart(Request $request)
@@ -176,4 +189,15 @@ class CartController extends Controller
             'message' => 'Buy Now item quantity updated successfully'
         ], 200);
     }
+
+    public function getCartCount(){
+        $user = session('user');
+        $userId = $user['id'] ?? null;
+        $count = 0;
+        if($userId){
+            $countResult = DB::select('SELECT COUNT(*) as count FROM cart_items WHERE user_id = ?', [$userId]);
+            $count = $countResult[0]->count ?? 0;
+        }
+        return response()->json(['count' => $count], 200);
+    } 
 }

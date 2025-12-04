@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>@yield('title', 'My Website')</title>
+    <title>@yield('title', 'Collection')</title>
 
     {{-- Tailwind / CSS --}}
     {{-- <link rel="stylesheet" href="{{ asset('css/app.css') }}"> --}}
@@ -24,6 +24,7 @@
     {{-- Footer --}}
     {{-- @include('components.footer') --}}
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    
     <script>
         function toggleWishlist(productId, productName) {
             const userId = "{{ session('user.id') }}";
@@ -167,8 +168,6 @@
         });
         const data = await res.json();
         await loadCart();
-
-        openCart();
         // optionally show feedback
     }
 

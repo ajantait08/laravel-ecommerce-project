@@ -65,6 +65,16 @@ class AuthController extends Controller
 
     $token = $user->createToken('auth_token')->plainTextToken;
 
+    // Save user data into session AS AN ARRAY
+    session([
+        'user' => [
+            'id'      => $user->id,
+            'name'    => $user->firstname . ' ' . $user->lastname,
+            'email'   => $user->email,
+            'avatar'  => $user->avatar ?? asset('assets/user_icon.svg'),
+        ]
+    ]);
+
     // return response()->json([
     //     'status' => true,
     //     'message' => 'Login successful',
@@ -83,14 +93,11 @@ public function me(Request $request)
     ]);
 }
 
-public function logout(Request $request)
+public function logout()
 {
-    $request->user()->currentAccessToken()->delete();
+    session()->flush();
 
-    return response()->json([
-        'status' => true,
-        'message' => 'Logged out successfully'
-    ]);
+    return redirect('/login')->with('success', 'Logged out successfully');
 }
 
 }
