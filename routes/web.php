@@ -81,12 +81,16 @@ Route::get('/dashboard',function(){
     }
     $cartitems = [];
     $guestId = request()->cookie('guest_cart_id');
+    $guestRecentlyViewedId = request()->cookie('guest_recently_viewed_id');
     // The Below CartItems Logic is edited based on LoggedIn User with Guest User
     if(app(CartController::class)->mergeGuestCartToUserCart($userId,$guestId)){
         $cartitems = $userId ? app(CartController::class)->getCartItemsNew($userId) : [];
     }
+    if(app(HomeController::class)->mergeGuestRecentlyViewedToUser($userId,$guestRecentlyViewedId)){
+        $recentlyViewedProducts = $userId ? app(HomeController::class)->getRecentlyViewedProducts($userId) : [];
+    }
     //print_r($cartitems); exit;
-    return view('dashboard',compact('products','cartitems'));
+    return view('dashboard',compact('products','cartitems','recentlyViewedProducts'));
 })->name('dashboard');
 
 Route::get('/checkout',function(){

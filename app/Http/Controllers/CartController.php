@@ -511,6 +511,7 @@ class CartController extends Controller
 
     public function deleteCookie(){
         cookie()->queue(Cookie::forget('guest_cart_id'));
+        cookie()->queue(Cookie::forget('guest_recently_viewed_id'));
         return response()->json(['status' => 'success'], 200);
     }
 }

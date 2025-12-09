@@ -93,6 +93,27 @@ public function show($category = 'All')
     ]);
 }
 
+public function mergeGuestRecentlyViewedToUser($userId,$guestRecentlyViewedId)
+{
+    // Fetch guest recently viewed items
+    $guestItems = DB::table('recently_viewed')
+        ->where('guest_id', $guestRecentlyViewedId)
+        ->where('user_id', null)
+        ->get();
+
+    foreach ($guestItems as $item) {       
+            // Update guest_id to user_id
+            DB::table('recently_viewed')
+                ->where('guest_id', $guestRecentlyViewedId)
+                ->update([
+                    'user_id' => $userId
+                ]);
+    }
+    return true;
+}
+
+
+
 public function showProductDetails($productId = "")
 {
     //echo 'reached here !', exit;
@@ -112,104 +133,191 @@ public function showProductDetails($productId = "")
     if ($this->checkIsWishlisted($product->_id, $userId)) {
         $product->is_wishlisted = true;
     }
+
     $guestId = request()->cookie('guest_cart_id');
     $guestRecentlyViewedId = request()->cookie('guest_recently_viewed_id');
 
-    // --------------------------------------
-// INSERT / UPDATE RECENTLY VIEWED ENTRY
-// --------------------------------------
-//$guestId = request()->cookie('guest_recently_viewed_id');
+    // Create guest id if missing (optional)
+    if (!$guestRecentlyViewedId) {
+        $guestRecentlyViewedId = encrypt(Str::uuid());
+            cookie()->queue(
+                cookie(
+                    'guest_recently_viewed_id',
+                    $guestRecentlyViewedId,
+                    525600, // 1 year
+                    '/',
+                    null,
+                    false,
+                    false  // HttpOnly = false → JS can read
+                )
+            );
 
-// Create guest id if missing (optional)
-if (!$guestRecentlyViewedId) {
-    $guestRecentlyViewedId = encrypt(Str::uuid());
-        cookie()->queue(
-            cookie(
-                'guest_recently_viewed_id',
-                $guestRecentlyViewedId,
-                525600, // 1 year
-                '/',
-                null,
-                false,
-                false  // HttpOnly = false → JS can read
-            )
-        );
-}
-
-// Check if product already exists for this guest
-$existing = DB::select("
-    SELECT id FROM recently_viewed
-    WHERE guest_id = ? AND product_id = ?
-    LIMIT 1
-", [$guestRecentlyViewedId, $productId]);
-
-if ($existing) {
-    // Update timestamp
-    DB::update("
-        UPDATE recently_viewed 
-        SET viewed_at = NOW()
-        WHERE id = ?
-    ", [$existing[0]->id]);
-} else {
-    // Insert new entry
-    DB::insert("
-        INSERT INTO recently_viewed (guest_id, product_id, viewed_at)
-        VALUES (?, ?, NOW())
-    ", [$guestRecentlyViewedId, $productId]);
-}
-
-// Keep only the latest 10 & delete the rest
-$deleteExtra = DB::select("
-    SELECT id FROM recently_viewed
-    WHERE guest_id = ?
-    ORDER BY viewed_at DESC
-    LIMIT 10, 1000
-", [$guestRecentlyViewedId]);
-
-if ($deleteExtra) {
-    $deleteIds = array_column($deleteExtra, 'id');
-
-    if (!empty($deleteIds)) {
-        $placeholders = implode(',', array_fill(0, count($deleteIds), '?'));
-        DB::delete("
-            DELETE FROM recently_viewed WHERE id IN ($placeholders)
-        ", $deleteIds);
+        $guestRecentlyViewedId = urldecode($guestRecentlyViewedId);
     }
-}
 
-// --------------------------------------
-// INSERT / UPDATE RECENTLY VIEWED ENTRY
-// --------------------------------------
+    
 
-    //fetch recently viewed products for guest user from database
-    // -----------------------------
-    // FETCH RECENTLY VIEWED FROM DB
-    // -----------------------------
-    //$guestId = request()->cookie('guest_recently_viewed_id');
+    // If user is logged in, merge guest recently viewed items
+    if ($userId && $guestRecentlyViewedId) {
+        //echo 'reached_here_1'; exit;
+        //$this->mergeGuestRecentlyViewedToUser($guestRecentlyViewedId, $userId);
+        $existing_user = DB::select("select id from recently_viewed where user_id = ? and guest_id = ? and product_id = ? limit 1",[$userId, $guestRecentlyViewedId , $productId]);
+        if($existing_user){
+            //echo 'block 1'; exit;
+            // Update timestamp
+            DB::update("
+                UPDATE recently_viewed 
+                SET viewed_at = NOW()
+                WHERE id = ?
+            ", [$existing_user[0]->id]);
+        } else {
+            //echo 'block 2'; exit;
+            // Insert new entry
+            DB::insert("
+                INSERT INTO recently_viewed (user_id,guest_id,product_id, viewed_at)
+                VALUES (?,?,?,NOW())
+            ", [$userId,$guestRecentlyViewedId,$productId]);
+        }
 
+        $deleteUserExtra = DB::select("select id from recently_viewed where user_id = ? and guest_id = ? ORDER BY viewed_at DESC LIMIT 10,1000",[$userId,$guestRecentlyViewedId]);
+        if($deleteUserExtra){
+            $deleteUserIds = array_column($deleteUserExtra,'id');
+            if(!empty($deleteUserIds)){
+                $placeholders = implode(',',array_fill(0,count($deleteUserIds),'?'));
+                DB::delete("DELETE FROM recently_viewed where id IN $placeholders",$deleteUserIds);
+            }
+        }
+
+        $recentIds = DB::select("
+            SELECT distinct product_id 
+            FROM recently_viewed 
+            WHERE user_id = ? and guest_id = ?
+            ORDER BY viewed_at DESC
+            LIMIT 15", [$userId, $guestRecentlyViewedId]);
+
+        // Convert to array of only IDs
+        $recentIds = array_column($recentIds, 'product_id');
+
+        // Remove current product from the recently viewed list
+        $recentIds = array_values(array_filter($recentIds, fn($id) => $id != $productId));
+
+        // Limit to 10
+        $recentIds = array_slice($recentIds, 0, 10);
+        $recentProducts = [];
+        if (!empty($recentIds)) {
+            // Convert ids to comma-separated list
+            $placeholders = implode(',', array_map(fn($id)=>"'$id'",$recentIds));
+
+            $recentProducts = DB::select("SELECT _id, name , price, images
+            FROM products
+            WHERE _id IN ($placeholders)
+            ORDER BY FIELD(_id,$placeholders)");
+
+            // Decode images JSON
+            foreach ($recentProducts as $rp) {
+                $rp->images = json_decode($rp->images, true);
+            }
+        }
+    }
+
+    else {
+        //echo 'reached_here_2'; exit;
+    // Check if product already exists for this guest
+    $existing = DB::select("
+        SELECT id FROM recently_viewed
+        WHERE guest_id = ? AND product_id = ?
+        LIMIT 1
+    ", [$guestRecentlyViewedId, $productId]);
+
+    if ($existing) {
+        // Update timestamp
+        DB::update("
+            UPDATE recently_viewed 
+            SET viewed_at = NOW()
+            WHERE id = ?
+        ", [$existing[0]->id]);
+    } else {
+        // Insert new entry
+        DB::insert("
+            INSERT INTO recently_viewed (guest_id, product_id, viewed_at)
+            VALUES (?, ?, NOW())
+        ", [$guestRecentlyViewedId, $productId]);
+    }
+
+    // Keep only the latest 10 & delete the rest
+    $deleteExtra = DB::select("
+        SELECT id FROM recently_viewed
+        WHERE guest_id = ?
+        ORDER BY viewed_at DESC
+        LIMIT 10, 1000
+    ", [$guestRecentlyViewedId]);
+
+    if ($deleteExtra) {
+        $deleteIds = array_column($deleteExtra, 'id');
+
+        if (!empty($deleteIds)) {
+            $placeholders = implode(',', array_fill(0, count($deleteIds), '?'));
+            DB::delete("
+                DELETE FROM recently_viewed WHERE id IN ($placeholders)
+            ", $deleteIds);
+        }
+    }
+
+        $recentIds = DB::select("
+            SELECT distinct product_id 
+            FROM recently_viewed 
+            WHERE guest_id = ?
+            ORDER BY viewed_at DESC
+            LIMIT 15
+        ", [$guestRecentlyViewedId]);
+
+        // Convert to array of only IDs
+        $recentIds = array_column($recentIds, 'product_id');
+
+        // Remove current product from the recently viewed list
+        $recentIds = array_values(array_filter($recentIds, fn($id) => $id != $productId));
+
+        // Limit to 10
+        $recentIds = array_slice($recentIds, 0, 10);
+
+        $recentProducts = [];
+
+        if (!empty($recentIds)) {
+            // Convert ids to comma-separated list
+            $placeholders = implode(',', array_map(fn($id)=>"'$id'",$recentIds));
+
+
+            $recentProducts = DB::select("SELECT _id, name , price, images
+            FROM products
+            WHERE _id IN ($placeholders)
+            ORDER BY FIELD(_id,$placeholders)");
+
+            // Decode images JSON
+            foreach ($recentProducts as $rp) {
+                $rp->images = json_decode($rp->images, true);
+            }
+        }
+    }
+
+        $cartitems = $userId ? app(CartController::class)->getCartItemsNew($userId) : app(CartController::class)->getGuestCartItemsNew($guestId);
+
+        return view('product-details-main', ['product' => $product , 'cartitems' => $cartitems , 'recentProducts' => $recentProducts]);
+    }
+
+    public function getRecentlyViewedProducts($userId){
     $recentIds = DB::select("
         SELECT distinct product_id 
         FROM recently_viewed 
-        WHERE guest_id = ?
+        WHERE user_id = ?
         ORDER BY viewed_at DESC
-        LIMIT 15
-    ", [$guestRecentlyViewedId]);
-
-    // Convert to array of only IDs
-    $recentIds = array_column($recentIds, 'product_id');
-
-    // Remove current product from the recently viewed list
-    $recentIds = array_values(array_filter($recentIds, fn($id) => $id != $productId));
-
-    // Limit to 10
-    $recentIds = array_slice($recentIds, 0, 10);
-
-    $recentProducts = [];
+        LIMIT 10", [$userId]);
+        // Convert to array of only IDs
+        $recentIds = array_column($recentIds, 'product_id');
+        $recentProducts = [];
 
     if (!empty($recentIds)) {
         // Convert ids to comma-separated list
         $placeholders = implode(',', array_map(fn($id)=>"'$id'",$recentIds));
-
 
         $recentProducts = DB::select("SELECT _id, name , price, images
         FROM products
@@ -220,11 +328,11 @@ if ($deleteExtra) {
         foreach ($recentProducts as $rp) {
             $rp->images = json_decode($rp->images, true);
         }
+
     }
 
-    $cartitems = $userId ? app(CartController::class)->getCartItemsNew($userId) : app(CartController::class)->getGuestCartItemsNew($guestId);
+    return $recentProducts;
 
-    return view('product-details-main', ['product' => $product , 'cartitems' => $cartitems , 'recentProducts' => $recentProducts]);
 }
 
 public function apiBulk(Request $request)
