@@ -9,6 +9,8 @@
 {{-- @php
     dd($filteredProducts);
 
+@endphp --}}
+
 
 @include('components.collection', [ 'categories' => $categories,'activeCategory' => $activeCategory,'filteredProducts' => $filteredProducts])
 

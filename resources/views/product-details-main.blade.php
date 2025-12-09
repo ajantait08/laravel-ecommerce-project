@@ -4,6 +4,12 @@
 
 @section('content')
 
+{{-- @php
+    echo '<pre>';
+    print_r($cartitems);
+    echo '</pre>';
+@endphp --}}
+
 @include('components.navbar' ,  ['cartitems' => $cartitems])
 
 {{-- @php

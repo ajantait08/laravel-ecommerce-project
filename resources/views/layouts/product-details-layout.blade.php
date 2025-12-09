@@ -103,11 +103,11 @@
 
     // load cart via AJAX
     async function loadCart() {
-        if (!userId) {
-            alert("Please login to add items to cart");
-            window.location.href = "/login";
-            return;
-        }
+        // if (!userId) {
+        //     alert("Please login to add items to cart");
+        //     window.location.href = "/login";
+        //     return;
+        // }
         
         const res = await fetch(CART_CONTENTS_URL, {
             method: 'POST',
@@ -181,53 +181,85 @@
             .replaceAll("'", '&#039;');
     }
 
-    async function addToCart(productId, qty = 1) {
-        // check user logged in
-        if (!userId) {
-            alert("Please login to add items to cart");
-            window.location.href = "/login";
-            return;
+        async function addToCart(productId, qty = 1) {
+        function getCookie(name) {
+            const value = `; ${document.cookie}`;
+            const parts = value.split(`; ${name}=`);
+            if (parts.length === 2) return parts.pop().split(";").shift();
+            return null;
         }
 
+        let guestId = getCookie("guest_cart_id");
+
         const res = await fetch(CART_ADD_URL, {
-            method: 'POST',
+            method: "POST",
             headers: {
-                'Content-Type': 'application/json',
-                'X-CSRF-TOKEN': CSRF
+                "Content-Type": "application/json",
+                "X-CSRF-TOKEN": CSRF
             },
-            body: JSON.stringify({ product_id: productId, qty , user_id: userId })
+            body: JSON.stringify({
+                product_id: productId,
+                qty,
+                user_id: userId ?? "",   // logged-in user
+                cart_id: guestId ?? ""   // guest cart cookie
+            })
         });
+
         const data = await res.json();
+
         updateCartCount();
-        await loadCart();        
-        // optionally show feedback
+        await loadCart();
         openCart();
     }
 
+
     async function removeFromCart(productId) {
-        if (!userId) {
-            alert("Please login to add items to cart");
-            window.location.href = "/login";
-            return;
-        }
+        // if (!userId) {
+        //     alert("Please login to add items to cart");
+        //     window.location.href = "/login";
+        //     return;
+        // }
         //console.log("Entered Remove From Cart !");
+        function getCookie(name) {
+            const value = `; ${document.cookie}`;
+            const parts = value.split(`; ${name}=`);
+            if (parts.length === 2) return parts.pop().split(";").shift();
+            return null;
+        }
+
+        let guestId = getCookie("guest_cart_id");
         const res = await fetch(CART_REMOVE_URL, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'X-CSRF-TOKEN': CSRF
             },
-            body: JSON.stringify({ product_id: productId , user_id : userId })
+            body: JSON.stringify({ product_id: productId , user_id : userId , cart_id : guestId ?? ""})
         });
         updateCartCount();
         await loadCart();
     }
 
     function updateCartCount() {
+    function getCookie(name) {
+        const value = `; ${document.cookie}`;
+        const parts = value.split(`; ${name}=`);
+        if (parts.length === 2) return parts.pop().split(";").shift();
+        return null;
+    }
+
+    let guestId = getCookie("guest_cart_id");
     $.ajax({
         url: "/cart/count",
-        type: "GET",
+        type: "POST",
+        data : {
+            _token : "{{ csrf_token()}}",
+            //cart_id : guestId
+        },
         success: function (res) {
+            console.log("Cart count:", res.count);
+            document.getElementById("cart-items-count").classList.remove("hidden");
+            document.getElementById("cart-items-count").classList.add("block");
             $("#cart-items-count").text(res.count);
         }
     });
@@ -273,6 +305,11 @@
     // Hook checkout button
     document.getElementById('checkout-btn').addEventListener('click', function () {
         // if you have a checkout route
+        if (!userId) {
+            alert("Please login to proceed to checkout");
+            window.location.href = "/login";
+            return;
+        }
         window.location.href = '/checkout';
     });
 

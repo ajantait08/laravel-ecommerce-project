@@ -70,4 +70,13 @@ $products = [
 
     </div>
 
+    <div class="mt-16 flex flex-col items-center">
+        <a href="{{ url('/all-featured-products') }}"
+           class="px-12 py-2.5 border rounded text-gray-500/70 hover:bg-slate-50/90 transition">
+            See more
+        </a>
+    </div>
+
+    
+
 </div>

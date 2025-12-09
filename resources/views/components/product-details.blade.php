@@ -4,6 +4,15 @@
 
 @include('components.navbar')
 
+<style>
+    .carousel-arrow {
+    font-size: 48px;
+    text-shadow: 2px 0 currentColor, -2px 0 currentColor;
+    cursor: pointer;
+    user-select: none;
+}
+</style>
+
 <div class="px-6 md:px-16 lg:px-32 pt-14 space-y-10">
 
     <div class="grid grid-cols-1 md:grid-cols-2 gap-16">
@@ -74,111 +83,115 @@
     </div>
 
     {{-- Recently Viewed Section --}}
-    <div class="flex flex-col items-center mt-16">
-        <p class="text-3xl font-medium">
-            Recently Viewed <span class="text-orange-600">Products</span>
-        </p>
-        <div class="w-28 h-0.5 bg-orange-600 mt-2 mb-6"></div>
+{{-- Recently Viewed Section --}}
+<div class="flex flex-col items-center mt-16">
+    <p class="text-3xl font-medium">
+        Recently Viewed <span class="text-orange-600">Products</span>
+    </p>
+    <div class="w-28 h-0.5 bg-orange-600 mt-2 mb-6"></div>
 
-        <p id="no-recent" class="text-gray-500 hidden">No recently viewed products yet.</p>
+    @php
+        $recentCount = count($recentProducts);
+    @endphp
 
-        <div id="recent-section" class="w-full pb-12 relative hidden">
+    @if($recentCount === 0)
+        <p class="text-gray-500">No recently viewed products yet.</p>
+    @else
+        <div id="recent-section" class="w-full pb-12 relative">
 
-            <div class="absolute left-0 top-1/2 -translate-y-1/2 z-20">
-                <button class="swiper-button-prev-custom bg-white shadow-md p-2 rounded-full" 
-                    style="background-color:rgb(233, 147, 147)">
-                    ◀
-                </button>
-            </div>
+            {{-- LEFT ARROW --}}
+            <button id="recent-prev"
+                class="carousel-arrow absolute -left-16 top-1/2 -translate-y-1/2 z-20 
+                    w-12 h-12 flex items-center justify-center
+                    bg-white text-black text-3xl font-extrabold rounded-full shadow 
+                    hover:text-black transition 
+                    hidden disabled:opacity-30 disabled:bg-gray-200 disabled:cursor-not-allowed">
+                ←
+            </button>
 
-            <div class="absolute right-0 top-1/2 -translate-y-1/2 z-20">
-                <button class="swiper-button-next-custom bg-white shadow-md p-2 rounded-full"
-                    style="background-color:rgb(233, 147, 147)">
-                    ▶
-                </button>
-            </div>
+            {{-- RIGHT ARROW --}}
+            <button id="recent-next"
+                class="carousel-arrow absolute -right-16 top-1/2 -translate-y-1/2 z-20 
+                    w-12 h-12 flex items-center justify-center
+                    bg-white text-black text-3xl font-extrabold rounded-full shadow 
+                    hover:text-black transition 
+                    hidden disabled:opacity-30 disabled:bg-gray-200 disabled:cursor-not-allowed">
+                →
+            </button>
 
-            <div class="swiper mySwiper w-full py-2 px-1">
-                <div id="recent-wrapper" class="swiper-wrapper flex flex-row overflow-x-auto space-x-4">
-                    {{-- Injected dynamically via JS --}}
+            {{-- Scroll Container --}}
+            <div class="recent-scroll-container overflow-x-hidden w-full">
+                <div id="recent-wrapper" class="flex space-x-5 transition-all duration-300">
+
+                    {{-- Rendered from server side --}}
+                    @foreach($recentProducts as $p)
+                        <div class="border rounded-lg p-3 bg-white shadow cursor-pointer min-w-[240px] max-w-[240px]">
+                            <a href="/product/{{ $p->_id }}">
+                                <img src="{{ asset($p->images[0]) }}" class="w-full h-64 object-cover rounded" />
+                                <p class="mt-2 font-medium">{{ $p->name }}</p>
+                                <p class="text-orange-600 font-semibold">₹{{ $p->price }}</p>
+                            </a>
+                        </div>
+                    @endforeach
+
                 </div>
             </div>
         </div>
-
-    </div>
-
+    @endif
 </div>
 
-@include('components.footer')
-
-{{-- Swiper JS --}}
-<script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
-
-{{-- Manage Recent Products via localStorage --}}
+{{-- Carousel Logic --}}
+@if($recentCount > 4)
 <script>
 document.addEventListener("DOMContentLoaded", function () {
 
-    const productId = "{{ $product->id }}";
+    const scrollContainer = document.querySelector(".recent-scroll-container");
+    const prevBtn = document.getElementById("recent-prev");
+    const nextBtn = document.getElementById("recent-next");
 
-    // ---- SAVE RECENTLY VIEWED ----
-    let viewed = JSON.parse(localStorage.getItem("recently_viewed")) || [];
+    // Show arrows only if > 4 items
+    prevBtn.classList.remove("hidden");
+    nextBtn.classList.remove("hidden");
 
-    viewed = viewed.filter(id => id !== productId);
-    viewed.unshift(productId);
-    viewed = viewed.slice(0, 10);
+    // Arrow click events
+    prevBtn.addEventListener("click", () => {
+        scrollContainer.scrollBy({ left: -260, behavior: "smooth" });
+    });
 
-    localStorage.setItem("recently_viewed", JSON.stringify(viewed));
+    nextBtn.addEventListener("click", () => {
+        scrollContainer.scrollBy({ left: 260, behavior: "smooth" });
+    });
 
-    // ---- LOAD RECENT PRODUCTS ----
-    let recent = viewed.filter(id => id !== productId);
+    // Arrow enable/disable logic
+    function updateArrows() {
+        const maxScroll = scrollContainer.scrollWidth - scrollContainer.clientWidth;
 
-    if (recent.length === 0) {
-        document.getElementById("no-recent").classList.remove("hidden");
-        return;
+        prevBtn.disabled = scrollContainer.scrollLeft <= 5;
+        nextBtn.disabled = scrollContainer.scrollLeft >= maxScroll - 5;
+
+        prevBtn.classList.toggle("opacity-30", prevBtn.disabled);
+        prevBtn.classList.toggle("cursor-not-allowed", prevBtn.disabled);
+
+        nextBtn.classList.toggle("opacity-30", nextBtn.disabled);
+        nextBtn.classList.toggle("cursor-not-allowed", nextBtn.disabled);
     }
 
-    document.getElementById("recent-section").classList.remove("hidden");
+    scrollContainer.addEventListener("scroll", () => {
+        window.requestAnimationFrame(updateArrows);
+    });
 
-    // Fetch product details from backend
-    fetch("{{ route('products.apiBulk') }}?ids=" + recent.join(","))
-        .then(res => res.json())
-        .then(data => {
-            const wrapper = document.getElementById("recent-wrapper");
-
-            data.forEach(p => {
-                wrapper.innerHTML += `
-                    <div class="swiper-slide !m-0 !p-0">
-                        <a href="/product/${p.id}">
-                            <div class="border rounded-lg p-3 bg-white shadow">
-                                <img src="${p.images[0]}" class="w-full h-80 object-cover rounded" />
-                                <p class="mt-2 font-medium">${p.name}</p>
-                                <p class="text-orange-600 font-semibold">₹${p.price}</p>
-                            </div>
-                        </a>
-                    </div>
-                `;
-            });
-
-            new Swiper(".mySwiper", {
-                slidesPerView: 2,
-                spaceBetween: 6,
-                autoplay: {
-                    delay: 1800,
-                    disableOnInteraction: false,
-                    pauseOnMouseEnter: true,
-                },
-                navigation: {
-                    nextEl: ".swiper-button-next-custom",
-                    prevEl: ".swiper-button-prev-custom",
-                },
-                breakpoints: {
-                    320: { slidesPerView: 1.3 },
-                    640: { slidesPerView: 2.2 },
-                    1024: { slidesPerView: 3.2 },
-                }
-            });
-        });
+    // Initial state
+    updateArrows();
 });
 </script>
+@endif
 
+
+
+@include('components.footer')
+
+
+{{-- Swiper JS --}}
+<script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
+    
 @endsection
