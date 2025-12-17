@@ -18,6 +18,8 @@ Route::get('/user', function (Request $request) {
 
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
+Route::post('/check-email-exists',[AuthController::class,'checkEmailExists']);
+Route::post('/checkout-login',[AuthController::class,'checkoutLogin']);
 Route::post('/storeWishlist',[WishlistController::class,'storeWishlist']);
 Route::get('/wishlist/{user_id}', [WishlistController::class, 'getWishlist']);
 Route::get('/cart/{user_id}', [CartController::class, 'getCartItems']);

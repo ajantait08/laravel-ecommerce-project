@@ -4,7 +4,7 @@
 
 @section('content')
 
-@include('components.navbar',['cartitems' => $cartitems])
+@include('components.navbar',['cartitems' => $cartitems , 'removeCartIcon' => true])
 
 {{-- @php
     dd($wishlistProducts);

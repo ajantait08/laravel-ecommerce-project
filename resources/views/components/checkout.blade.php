@@ -1,3 +1,8 @@
+@php
+$user = session('user');
+@endphp
+
+
 <!doctype html>
 <html>
 <head>
@@ -5,7 +10,6 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="csrf-token" content="{{ csrf_token() }}">
   <title>Checkout</title>
-  <script src="https://js.stripe.com/v3/"></script>
   {{-- <script defer>
     window.Laravel = {
       csrfToken: "{{ csrf_token() }}",
@@ -22,32 +26,87 @@
 </head>
 <body class="bg-white text-gray-800">
   {{-- include your Navbar if needed --}}
+
+  
   <div class="max-w-5xl mx-auto p-6 grid grid-cols-1 md:grid-cols-2 gap-8">
-    {{-- Billing Form --}}
+    
+    
     <div>
+  @if(!$user)
+        {{-- CUSTOMER LOGIN SECTION --}}
+  <div id="customer-login-box" class="w-full mb-6 p-5 border rounded-lg bg-gray-50" style="background-color: #ecd4a9;">
+    <div class="flex justify-between items-center">
+        <h2 class="text-lg font-semibold">Customer Information</h2>
+        {{-- <a href="{{ url('/login') }}" class="text-sm text-blue-600 hover:underline">
+            Already have an account? Log in
+        </a> --}}
+    </div>
+
+    {{-- Email Field --}}
+    <div class="mt-4">
+        <label class="block font-medium">Email address *</label>
+        <input 
+            type="email" 
+            id="customer-email"
+            class="w-full border rounded px-3 py-2"
+        />
+        <p id="customer-email-error" class="mt-2 text-green-500 text-sm hidden font-bold" style="color:rgb(47, 72, 64)"></p>
+    </div>
+
+    {{-- Password field (SHOWN only if email exists) --}}
+    <div id="password-wrapper" class="mt-4 hidden">
+        <label class="block font-medium">Password *</label>
+        <div class="relative">
+            <input 
+                type="password"
+                id="customer-password"
+                class="w-full border rounded px-3 py-2"
+            />
+        </div>
+        {{-- <a href="{{ url('/forgot-password') }}" class="text-sm text-blue-600 mt-1 inline-block">
+            Lost your password?
+        </a> --}}
+        <p id="customer-password-error" class="text-red-500 text-sm hidden"></p>
+    </div>
+
+    {{-- LOGIN BUTTON --}}
+    <button 
+        id="customer-login-btn"
+        class="mt-4 px-6 py-2 bg-orange-500 text-white rounded hover:bg-orange-600 transition hidden"
+    >
+        Login
+    </button>
+
+    {{-- SUCCESS MESSAGE --}}
+    <p id="customer-success" class="text-green-600 text-sm mt-3 hidden"></p>
+  </div>
+  @endif
+
+      {{-- Billing Details Form --}}
+
       <form id="billing-form" class="space-y-4" novalidate>
         <h2 class="text-xl font-bold mb-4">Billing details</h2>
         <div>
           <label class="block font-medium">Email address *</label>
-          <input type="email" id="email" name="email" class="w-full border rounded px-3 py-2" />
+          <input type="email" id="email" name="email" @if($user) disabled @endif @if($user) value="{{ $user['email'] ?? '' }}" @endif class="@if($user) disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed @endif w-full border rounded px-3 py-2" />
           <p id="error-email" class="text-red-500 text-sm hidden"></p>
         </div>
 
         <div>
           <label class="block font-medium">Phone no. *</label>
-          <input type="text" id="phone" name="phone" class="w-full border rounded px-3 py-2" />
+          <input type="text" id="phone" name="phone" @if($user) disabled @endif @if($user) value="{{ $user['phone'] ?? ''}}" @endif class="@if($user) disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed @endif w-full border rounded px-3 py-2" />
           <p id="error-phone" class="text-red-500 text-sm hidden"></p>
         </div>
 
         <div class="grid grid-cols-2 gap-4">
           <div>
             <label class="block font-medium">First name *</label>
-            <input type="text" id="firstName" name="firstName" class="w-full border rounded px-3 py-2" />
+            <input type="text" id="firstName" name="firstName" onkeyup="validateForm()" @if($user) value="{{ $user['firstname'] ?? ''}}" @endif  class="w-full border rounded px-3 py-2" />
             <p id="error-firstName" class="text-red-500 text-sm hidden"></p>
           </div>
           <div>
             <label class="block font-medium">Last name *</label>
-            <input type="text" id="lastName" name="lastName" class="w-full border rounded px-3 py-2" />
+            <input type="text" id="lastName" name="lastName" onkeyup="validateForm()" @if($user) value="{{ $user['lastname'] ?? ''}}" @endif class="w-full border rounded px-3 py-2" />
             <p id="error-lastName" class="text-red-500 text-sm hidden"></p>
           </div>
         </div>
@@ -64,7 +123,7 @@
 
         <div>
           <label class="block font-medium">Country / Region *</label>
-          <select id="country" name="country" class="w-full border rounded px-3 py-2">
+          <select id="country" name="country" onkeyup="validateForm()" class="w-full border rounded px-3 py-2">
             <option value="">Select country</option>
             <option value="India">India</option>
             <option value="USA">United States</option>
@@ -76,26 +135,26 @@
 
         <div>
           <label class="block font-medium">Town / City *</label>
-          <input type="text" id="city" name="city" class="w-full border rounded px-3 py-2" />
+          <input type="text" id="city" name="city" onkeyup="validateForm()" class="w-full border rounded px-3 py-2" />
           <p id="error-city" class="text-red-500 text-sm hidden"></p>
         </div>
 
         <div>
           <label class="block font-medium">State *</label>
-          <input type="text" id="state" name="state" class="w-full border rounded px-3 py-2" />
+          <input type="text" id="state" name="state" onkeyup="validateForm()" class="w-full border rounded px-3 py-2" />
           <p id="error-state" class="text-red-500 text-sm hidden"></p>
         </div>
 
         <div>
           <label class="block font-medium">Pincode *</label>
-          <input type="text" id="pincode" name="pincode" class="w-full border rounded px-3 py-2" />
+          <input type="text" id="pincode" name="pincode" onkeyup="validateForm()" class="w-full border rounded px-3 py-2" />
           <p id="error-pincode" class="text-red-500 text-sm hidden"></p>
         </div>
       </form>
     </div>
 
     {{-- Order Summary --}}
-    <div class="bg-gray-50 p-6 rounded-lg shadow space-y-3">
+    <div class="bg-[#ce9b9b] p-6 rounded-lg shadow space-y-3">
       <h2 class="text-xl font-bold mb-4">Order Details</h2>
 
       <div id="order-items" class="divide-y space-y-2">
@@ -105,8 +164,8 @@
               <div class="flex items-center gap-3">
                 <img src="{{ $item->image ?? ''}}" class="w-12 h-12 rounded object-cover border" />
                 <div>
-                  <p class="font-medium">{{ $item->name }}</p>
-                  <p class="text-sm text-gray-500">₹{{ number_format($item->price,2) }}</p>
+                  <p class="font-bold">{{ $item->name }}</p>
+                  <p class="text-sm text-black-500 font-bold" id="item-price">₹{{ number_format($item->price,2) }}</p>
                   <div class="flex items-center gap-2 mt-2">
                     <button class="decrement px-2 py-1 border rounded font-bold">−</button>
                     <span class="px-2 text-sm qty">{{ $item->quantity }}</span>
@@ -115,8 +174,8 @@
                 </div>
               </div>
               <div class="text-right">
-                <p class="font-semibold">₹{{ number_format($item->price * $item->quantity, 2) }}</p>
-                <button class="remove text-red-500 text-xs mt-1 hover:underline">Remove</button>
+                <p class="font-semibold" id="final-item-price">₹{{ number_format($item->price * $item->quantity, 2) }}</p>
+                <button class="remove text-red-500 text-xs mt-1 hover:underline font-bold">Remove</button>
               </div>
             </div>
           @endforeach
@@ -135,8 +194,8 @@
 
       {{-- Price summary --}}
       <div class="flex justify-between">
-        <span>Subtotal:</span>
-        <span id="subtotal">₹0.00</span>
+        <span class="font-medium">Subtotal:</span>
+        <span class="font-medium" id="subtotal">₹0.00</span>
       </div>
 
       {{-- <div id="discount-row" class="hidden flex justify-between text-green-600">
@@ -168,15 +227,77 @@
       </div>
 
       {{-- Stripe placeholder / will be injected by JS --}}
-      <div id="stripe-container" class="mt-4"></div>
+      {{-- <div id="stripe-container" class="mt-4"> --}}
+        <!-- Payment Gateway Field -->
+<div class="mt-4">
+  <label class="block font-bold mt-4">Payment Gateway *</label>
+  <input 
+      type="text" 
+      id="payment-gateway" 
+      class="w-full border rounded px-3 mt-4 py-2 bg-gray-100 disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed" 
+      value="Stripe" 
+      disabled
+  />
+</div>
+
+<!-- Continue Button -->
+<button 
+  id="continue-btn"
+  class="mt-4 w-full py-3 bg-gray-400 text-white rounded cursor-not-allowed"
+  disabled
+>
+  Continue To Payment
+</button>
+      {{-- </div> --}}
     </div>
   </div>
 
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-  // Basic data built from server DOM
-  function parsePrice(s) {
-    return Number(s.replace(/[^0-9.-]+/g,""));
+
+function validateForm() {
+    let ok = true;
+    // simple validators
+    const phone = document.getElementById('phone').value.trim();
+    if (!/^\d{10}$/.test(phone)) { 
+    document.getElementById('error-phone').classList.remove('hidden'); 
+    document.getElementById('error-phone').innerText = 'Invalid phone'; 
+    ok = false; 
+    } 
+    else { 
+    document.getElementById('error-phone').classList.add('hidden'); 
+  }
+    const firstName = document.getElementById('firstName').value.trim();
+    if(!/^[A-Za-z0-9 ]+$/.test(firstName)){
+      document.getElementById('error-firstName').classList.remove('hidden'); 
+      document.getElementById('error-firstName').innerText = 'Invalid first name'; 
+      ok = false;
+    }
+    else{
+      document.getElementById('error-firstName').classList.add('hidden'); 
+    }
+    const lastName = document.getElementById('lastName').value.trim();
+    if(!/^[A-Za-z0-9 ]+$/.test(lastName)){
+      document.getElementById('error-lastName').classList.remove('hidden'); 
+      document.getElementById('error-lastName').innerText = 'Invalid last name'; 
+      ok = false;
+    }
+    else{
+      document.getElementById('error-lastName').classList.add('hidden'); 
+    }
+    //if (!firstName) { document.getElementById('error-firstName').classList.remove('hidden'); document.getElementById('error-firstName').innerText='Required'; ok = false; } else { document.getElementById('error-firstName').classList.add('hidden'); }
+    //const lastName = document.getElementById('lastName').value.trim();
+    //if (!lastName) { document.getElementById('error-lastName').classList.remove('hidden'); document.getElementById('error-lastName').innerText='Required'; ok = false; } else { document.getElementById('error-lastName').classList.add('hidden'); }
+    const street = document.getElementById('street').value.trim();
+    if (!street) { document.getElementById('error-street').classList.remove('hidden'); document.getElementById('error-street').innerText='Required'; ok = false; } else { document.getElementById('error-street').classList.add('hidden'); }
+    const country = document.getElementById('country').value.trim();
+    if (!country) { document.getElementById('error-country').classList.remove('hidden'); document.getElementById('error-country').innerText='Required'; ok = false; } else { document.getElementById('error-country').classList.add('hidden'); }
+    const city = document.getElementById('city').value.trim();
+    if (!city) { document.getElementById('error-city').classList.remove('hidden'); document.getElementById('error-city').innerText='Required'; ok = false; } else { document.getElementById('error-city').classList.add('hidden'); }
+    const state = document.getElementById('state').value.trim();
+    if (!state) { document.getElementById('error-state').classList.remove('hidden'); document.getElementById('error-state').innerText='Required'; ok = false; } else { document.getElementById('error-state').classList.add('hidden'); }
+    const pincode = document.getElementById('pincode').value.trim();
+    if (!/^\d{6}$/.test(pincode)) { document.getElementById('error-pincode').classList.remove('hidden'); document.getElementById('error-pincode').innerText='Invalid pincode'; ok = false; } else { document.getElementById('error-pincode').classList.add('hidden'); }
+    return ok;
   }
 
   // Build cart items array from DOM
@@ -184,38 +305,54 @@ document.addEventListener('DOMContentLoaded', function() {
     const items = [];
     document.querySelectorAll('#order-items > div[data-product-id]').forEach(div => {
       const pid = div.getAttribute('data-product-id');
-      const name = div.querySelector('p.font-medium').innerText;
+      const name = div.querySelector('p.font-bold').innerText;
       const priceText = div.querySelector('p.text-sm').innerText.replace('₹','');
-      const price = parseFloat(priceText);
+      const normalized = priceText.replace(/,/g, '').replace(/[^\d.-]/g, '').trim();
+      const image = div.querySelector('img').src || '';
+      const price = parseFloat(normalized) || 0;
+      //console.log('priceText:', priceText);
+      //const price = parseFloat(priceText);
+      console.log('price', price);
       const qty = parseInt(div.querySelector('.qty').innerText) || 1;
-      items.push({ product_id: pid, quantity: qty, price, name });
+      items.push({ product_id: pid, quantity: qty, price, name , image});
     });
     return items;
   }
 
   function recalcTotals() {
     const cart = getCartArrayFromDOM();
+    console.log('Cart items:', cart);
     const subtotalVal = cart.reduce((acc,i) => acc + (i.price * i.quantity), 0);
     document.getElementById('subtotal').innerText = '₹' + subtotalVal.toFixed(2);
     document.getElementById('final-total').innerText = '₹' + subtotalVal.toFixed(2);
+    
 
-    const shippingRadio = document.querySelector('input[name="shipping"]:checked').value;
-    const shippingCost = shippingRadio === 'expedited' ? 199 : 0;
-    document.getElementById('shipping-cost').innerText = '₹' + shippingCost;
+    //const shippingRadio = document.querySelector('input[name="shipping"]:checked').value;
+    //const shippingCost = shippingRadio === 'expedited' ? 199 : 0;
+    const shippingCost = 0;
+    //document.getElementById('shipping-cost').innerText = '₹' + shippingCost;
 
-    const discount = window.checkoutDiscount || 0;
-    if (discount > 0) {
-      document.getElementById('discount-row').classList.remove('hidden');
-      document.getElementById('discount-amount').innerText = '- ₹' + discount.toFixed(2);
-    } else {
-      document.getElementById('discount-row').classList.add('hidden');
-    }
+    // const discount = window.checkoutDiscount || 0;
+    // if (discount > 0) {
+    //   document.getElementById('discount-row').classList.remove('hidden');
+    //   document.getElementById('discount-amount').innerText = '- ₹' + discount.toFixed(2);
+    // } else {
+    //   document.getElementById('discount-row').classList.add('hidden');
+    // }
+
+    const discount = 0;
 
     const total = Math.max(subtotalVal - discount + shippingCost, 0);
     // Uncomment Later
     //document.getElementById('final-total').innerText = '₹' + total.toFixed(2);
     // Uncomment Later
     return {subtotal: subtotalVal, shippingCost, discount, total};
+  }
+
+document.addEventListener('DOMContentLoaded', function() {
+  // Basic data built from server DOM
+  function parsePrice(s) {
+    return Number(s.replace(/[^0-9.-]+/g,""));
   }
 
   // initialize totals
@@ -225,9 +362,31 @@ document.addEventListener('DOMContentLoaded', function() {
   document.querySelectorAll('.increment').forEach(btn => {
     btn.addEventListener('click', async (e) => {
       const pid = e.target.closest('[data-product-id]').dataset.productId;
-      await axios.post('/api/cart/increment', { product_id: pid });
       const qtySpan = e.target.closest('[data-product-id]').querySelector('.qty');
+      const final_item_div = e.target.closest('[data-product-id]').querySelector('#final-item-price');
+      //const itemPrice = e.target.closest('[data-product-id]').querySelector('#item-price');
+      const priceText = e.target.closest('[data-product-id]').querySelector('#item-price').innerText.replace('₹','');
+      const normalized = priceText.replace(/,/g, '').replace(/[^\d.-]/g, '').trim();
+      const price = parseFloat(normalized) || 0;
+      const container = btn.closest('[data-product-id]');
+      const decrementBtn = container.querySelector('.decrement');
+      //console.log('price in increment:', price);
+      //const subtotalVal = parsePrice(document.getElementById('subtotal').innerText);
+      let qty = parseInt(qtySpan.innerText);
+      // enable decrement button if was disabled
+      if (qty >= 1) {
+      decrementBtn.disabled = false;
+      decrementBtn.classList.remove('bg-gray-400', 'cursor-not-allowed');
+      }
+      const user_id = "{{ $user['id'] ?? '' }}";
+      await axios.post('/cart/increment/', { product_id: pid ,quantity: qty + 1 , user_id: user_id});
+      //const qtySpan = e.target.closest('[data-product-id]').querySelector('.qty');
       qtySpan.innerText = parseInt(qtySpan.innerText) + 1;
+      // update final item price
+      const finalPrice = price * (qty + 1);
+      final_item_div.innerText = '₹' + finalPrice.toFixed(2);
+      //document.getElementById('item-price').innerText = '₹' + subtotalVal.toFixed(2);
+      incrementQuantity(pid, qty);
       recalcTotals();
     });
   });
@@ -237,10 +396,25 @@ document.addEventListener('DOMContentLoaded', function() {
       const container = e.target.closest('[data-product-id]');
       const pid = container.dataset.productId;
       const qtySpan = container.querySelector('.qty');
+      const final_item_div = e.target.closest('[data-product-id]').querySelector('#final-item-price');
+      //const itemPrice = e.target.closest('[data-product-id]').querySelector('#item-price');
+      const priceText = e.target.closest('[data-product-id]').querySelector('#item-price').innerText.replace('₹','');
+      const normalized = priceText.replace(/,/g, '').replace(/[^\d.-]/g, '').trim();
+      const price = parseFloat(normalized) || 0;
       let qty = parseInt(qtySpan.innerText);
-      if (qty <= 1) return;
-      await axios.post('/api/cart/decrement', { product_id: pid });
+      const user_id = "{{ $user['id'] ?? '' }}";
+      if (qty <= 1) {
+        btn.disabled = true;
+        btn.classList.add('bg-gray-400', 'cursor-not-allowed');
+        return;
+      }
+      
+      //await axios.post('/api/cart/decrement', { product_id: pid });
+      await axios.post('/cart/decrement/', { product_id: pid ,quantity: qty - 1 , user_id: user_id});
+      const finalPrice = price * (qty - 1);
+      final_item_div.innerText = '₹' + finalPrice.toFixed(2);
       qtySpan.innerText = qty - 1;
+      decrementQuantity(pid, qty);
       recalcTotals();
     });
   });
@@ -249,11 +423,41 @@ document.addEventListener('DOMContentLoaded', function() {
     btn.addEventListener('click', async (e) => {
       const container = e.target.closest('[data-product-id]');
       const pid = container.dataset.productId;
-      await axios.post('/api/cart/remove', { product_id: pid });
+      await axios.post('/cart/remove', { product_id: pid });
       container.remove();
-      recalcTotals();
+      updateCartCount();
+      removeFromCart(pid);
+      const totals = recalcTotals();
+      if(totals.total == 0.00){
+      document.getElementById('continue-btn').disabled = true;
+      document.getElementById('continue-btn').classList.add('bg-gray-400', 'cursor-not-allowed');
+      document.getElementById('continue-btn').classList.remove('bg-green-600', 'hover:bg-green-700');
+      }
+      else{
+      document.getElementById('continue-btn').disabled = false;
+      document.getElementById('continue-btn').classList.remove('bg-gray-400', 'cursor-not-allowed');
+      document.getElementById('continue-btn').classList.add('bg-green-600', 'hover:bg-green-700');
+      }
+
     });
   });
+
+  function updateCartCount() {
+    $.ajax({
+        url: "/cart/count",
+        type: "POST",
+        data : {
+            _token : "{{ csrf_token()}}",
+            //cart_id : guestId
+        },
+        success: function (res) {
+            console.log("Cart count:", res.count);
+            document.getElementById("cart-items-count").classList.remove("hidden");
+            document.getElementById("cart-items-count").classList.add("block");
+            $("#cart-items-count").text(res.count);
+        }
+    });
+    }
 
   // shipping change
   document.querySelectorAll('input[name="shipping"]').forEach(r => {
@@ -261,54 +465,125 @@ document.addEventListener('DOMContentLoaded', function() {
   });
 
   // simple coupon flow (demo)
-  window.checkoutDiscount = 0;
-  document.getElementById('apply-coupon').addEventListener('click', function() {
-    const code = document.getElementById('coupon-code').value.trim();
-    if (!code) { document.getElementById('coupon-msg').innerText = 'Enter coupon'; return; }
-    // Demo: coupon 'SAVE50' gives 50 INR off
-    if (code === 'SAVE50') {
-      window.checkoutDiscount = 50;
-      document.getElementById('coupon-msg').innerText = 'Coupon applied: -₹50';
-    } else {
-      window.checkoutDiscount = 0;
-      document.getElementById('coupon-msg').innerText = 'Invalid coupon';
+  // window.checkoutDiscount = 0;
+  // document.getElementById('apply-coupon').addEventListener('click', function() {
+  //   const code = document.getElementById('coupon-code').value.trim();
+  //   if (!code) { document.getElementById('coupon-msg').innerText = 'Enter coupon'; return; }
+  //   // Demo: coupon 'SAVE50' gives 50 INR off
+  //   if (code === 'SAVE50') {
+  //     window.checkoutDiscount = 50;
+  //     document.getElementById('coupon-msg').innerText = 'Coupon applied: -₹50';
+  //   } else {
+  //     window.checkoutDiscount = 0;
+  //     document.getElementById('coupon-msg').innerText = 'Invalid coupon';
+  //   }
+  //   recalcTotals();
+  // });
+
+ // Address autocomplete using Nominatim
+//const streetInput = document.getElementById('street');
+
+const suggestionsEl = document.getElementById('address-suggestions');
+const streetInput = document.getElementById('street');
+
+// Use INPUT event instead of keypress → captures the updated value
+streetInput.addEventListener('input', async function (e) {
+
+  const q = e.target.value.trim();
+  console.log("input:", q);
+
+  // If empty → hide + clear suggestions
+  if (!q) {
+    suggestionsEl.classList.add('hidden');
+    suggestionsEl.innerHTML = '';
+    return;
+  }
+
+  try {
+    const res = await fetch(
+      'https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&q=' +
+        encodeURIComponent(q)
+    );
+
+    const data = await res.json();
+
+    suggestionsEl.innerHTML = '';
+
+    if (!data.length) {
+      suggestionsEl.classList.add('hidden');
+      return;
     }
-    recalcTotals();
-  });
 
-  // Address autocomplete using Nominatim
-  const streetInput = document.getElementById('street');
-  const suggestionsEl = document.getElementById('address-suggestions');
-  let debounceTimer;
-  streetInput.addEventListener('input', function(e) {
-    const q = e.target.value;
-    clearTimeout(debounceTimer);
-    if (!q) { suggestionsEl.classList.add('hidden'); return; }
-    debounceTimer = setTimeout(async () => {
-      try {
-        const res = await fetch('https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&q=' + encodeURIComponent(q));
-        const data = await res.json();
-        suggestionsEl.innerHTML = '';
-        data.slice(0,5).forEach(item => {
-          const li = document.createElement('li');
-          li.className = 'p-2 hover:bg-gray-100 cursor-pointer text-sm';
-          li.innerText = item.display_name;
-          li.addEventListener('click', () => {
-            const addr = item.address || {};
-            document.getElementById('street').value = item.display_name || '';
-            document.getElementById('city').value = addr.city || addr.town || addr.village || '';
-            document.getElementById('state').value = addr.state || '';
-            document.getElementById('country').value = addr.country || '';
-            document.getElementById('pincode').value = addr.postcode || '';
-            suggestionsEl.classList.add('hidden');
-          });
-          suggestionsEl.appendChild(li);
-        });
-        suggestionsEl.classList.remove('hidden');
-      } catch(err) { console.error(err); }
-    }, 300);
-  });
+    data.slice(0, 5).forEach(item => {
+      const li = document.createElement('li');
+      li.className = 'p-2 hover:bg-gray-100 cursor-pointer text-sm';
+      li.innerText = item.display_name;
 
+      li.addEventListener('click', () => {
+        const addr = item.address || {};
+
+        streetInput.value = item.display_name || '';
+        document.getElementById('city').value =
+          addr.city || addr.town || addr.village || '';
+        document.getElementById('state').value = addr.state || '';
+        document.getElementById('country').value = addr.country || '';
+        document.getElementById('pincode').value = addr.postcode || '';
+
+        // 🔥 Trigger continue button activation for autofill
+        document.dispatchEvent(new Event('address-autofilled'));
+
+        suggestionsEl.classList.add('hidden');
+      });
+
+      suggestionsEl.appendChild(li);
+    });
+
+    suggestionsEl.classList.remove('hidden');
+  } catch (err) {
+    console.error(err);
+  }
+});
+
+
+function checkPincodeAndToggleContinue() {
+    const pincode = document.getElementById('pincode').value.trim();
+    const address = document.getElementById('street').value.trim();
+    const btn = document.getElementById('continue-btn');
+
+    // if (/^\d{6}$/.test(pincode)) {
+    //     btn.disabled = false;
+    //     btn.classList.remove('bg-gray-400', 'cursor-not-allowed');
+    //     btn.classList.add('bg-green-600', 'hover:bg-green-700');
+    // } else {
+    //     btn.disabled = true;
+    //     btn.classList.add('bg-gray-400', 'cursor-not-allowed');
+    //     btn.classList.remove('bg-green-600', 'hover:bg-green-700');
+    // }
+
+    const totals = recalcTotals();
+    if (totals.total > 0 && /^\d{6}$/.test(pincode) && address.length > 0) {
+        btn.disabled = false;
+        btn.classList.remove('bg-gray-400', 'cursor-not-allowed');
+        btn.classList.add('bg-green-600', 'hover:bg-green-700');
+    } else {
+        btn.disabled = true;
+        btn.classList.add('bg-gray-400', 'cursor-not-allowed');
+        btn.classList.remove('bg-green-600', 'hover:bg-green-700');
+    }
+}
+
+// When user manually types the pincode
+document.getElementById('pincode').addEventListener('input', checkPincodeAndToggleContinue);
+
+// When autocomplete fills the address and pincode
+document.addEventListener('address-autofilled', checkPincodeAndToggleContinue);
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', checkPincodeAndToggleContinue);
+} else {
+  // DOM already parsed — run a check right away
+  checkPincodeAndToggleContinue();
+}
   // Stripe integration: create payment intent when user clicks Pay
   let stripe = Stripe(window.Laravel.stripePublicKey);
   let elements;
@@ -372,35 +647,6 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   }
 
-  function validateForm() {
-    let ok = true;
-    // simple validators
-    const phone = document.getElementById('phone').value.trim();
-    if (!/^\d{10}$/.test(phone)) { 
-    document.getElementById('error-phone').classList.remove('hidden'); 
-    document.getElementById('error-phone').innerText = 'Invalid phone'; 
-    ok = false; 
-    } 
-    else { 
-    document.getElementById('error-phone').classList.add('hidden'); 
-  }
-    const firstName = document.getElementById('firstName').value.trim();
-    if (!firstName) { document.getElementById('error-firstName').classList.remove('hidden'); document.getElementById('error-firstName').innerText='Required'; ok = false; } else { document.getElementById('error-firstName').classList.add('hidden'); }
-    const lastName = document.getElementById('lastName').value.trim();
-    if (!lastName) { document.getElementById('error-lastName').classList.remove('hidden'); document.getElementById('error-lastName').innerText='Required'; ok = false; } else { document.getElementById('error-lastName').classList.add('hidden'); }
-    const street = document.getElementById('street').value.trim();
-    if (!street) { document.getElementById('error-street').classList.remove('hidden'); document.getElementById('error-street').innerText='Required'; ok = false; } else { document.getElementById('error-street').classList.add('hidden'); }
-    const country = document.getElementById('country').value.trim();
-    if (!country) { document.getElementById('error-country').classList.remove('hidden'); document.getElementById('error-country').innerText='Required'; ok = false; } else { document.getElementById('error-country').classList.add('hidden'); }
-    const city = document.getElementById('city').value.trim();
-    if (!city) { document.getElementById('error-city').classList.remove('hidden'); document.getElementById('error-city').innerText='Required'; ok = false; } else { document.getElementById('error-city').classList.add('hidden'); }
-    const state = document.getElementById('state').value.trim();
-    if (!state) { document.getElementById('error-state').classList.remove('hidden'); document.getElementById('error-state').innerText='Required'; ok = false; } else { document.getElementById('error-state').classList.add('hidden'); }
-    const pincode = document.getElementById('pincode').value.trim();
-    if (!/^\d{6}$/.test(pincode)) { document.getElementById('error-pincode').classList.remove('hidden'); document.getElementById('error-pincode').innerText='Invalid pincode'; ok = false; } else { document.getElementById('error-pincode').classList.add('hidden'); }
-    return ok;
-  }
-
   function gatherFormData() {
     return {
       email: document.getElementById('email').value.trim(),
@@ -442,5 +688,129 @@ document.addEventListener('DOMContentLoaded', function() {
   stripeContainer.appendChild(startBtn);
 });
 </script>
+
+@if(!$user)
+<script>
+// CUSTOMER LOGIN LOGIC
+document.getElementById('customer-email').addEventListener('keypress', async function () {
+    const email = this.value.trim();
+    if (!email) return;
+
+    try {
+    const res = await axios.post('/api/check-email-exists', { email });
+
+    if (res.data.exists) {
+
+        // USER EXISTS → show login UI
+        document.getElementById('customer-email-error').innerText =
+            "This email is already registered. Please enter the password to continue.";
+        document.getElementById('customer-email-error').classList.remove('hidden');
+
+        document.getElementById('password-wrapper').classList.remove('hidden');
+        document.getElementById('customer-login-btn').classList.remove('hidden');
+
+    } else {
+
+        // USER DOES NOT EXIST → show REGISTER link
+        document.getElementById('customer-email-error').innerHTML =
+            `This email is not registered. Please 
+    <a href="/register?from=${encodeURIComponent(window.location.pathname)}" 
+       class="text-blue-600 underline">Register Here</a>`;
+        document.getElementById('customer-email-error').classList.remove('hidden');
+
+        document.getElementById('password-wrapper').classList.add('hidden');
+        document.getElementById('customer-login-btn').classList.add('hidden');
+    }
+
+} catch (err) {
+    console.error(err);
+}
+
+});
+
+document.getElementById('customer-login-btn').addEventListener('click', async function () {
+    const email = document.getElementById('customer-email').value.trim();
+    const password = document.getElementById('customer-password').value.trim();
+
+    try {
+        const res = await axios.post('checkout-login', { email, password });
+
+        if (res.data.success) {
+            document.getElementById('customer-success').innerText = "Logged in successfully!";
+            document.getElementById('customer-success').classList.remove('hidden');
+            // Auto-fill billing email
+            //document.getElementById('email').value = email;
+            window.location.href = res.data.redirect_url;
+        } else {
+            document.getElementById('customer-password-error').innerText =
+                "Invalid credentials.";
+            document.getElementById('customer-password-error').classList.remove('hidden');
+        }
+
+    } catch (err) {
+        console.error(err);
+        document.getElementById('customer-password-error').innerText = "Login failed.";
+        document.getElementById('customer-password-error').classList.remove('hidden');
+    }
+});
+
+</script>
+@endif
+
+<script>
+  document.getElementById('continue-btn').addEventListener('click', async function () {
+
+    const totals = recalcTotals();
+    console.log('Totals before continue:', totals);
+if (!validateForm() || totals.subtotal == 0.00) {
+  alert('Please fill all required fields and ensure cart is not empty.');
+  document.getElementById('continue-btn').disabled = true;
+  document.getElementById('continue-btn').classList.add('bg-gray-400', 'cursor-not-allowed');
+  document.getElementById('continue-btn').classList.remove('bg-green-600', 'hover:bg-green-700');
+  return;
+}
+
+const payload = {
+    user_id: "{{ $user['id'] ?? null }}",
+    payment_gateway: 'Stripe',
+
+    billing: {
+        email: document.getElementById('email').value.trim(),
+        phone: document.getElementById('phone').value.trim(),
+        first_name: document.getElementById('firstName').value.trim(),
+        last_name: document.getElementById('lastName').value.trim(),
+        street: document.getElementById('street').value.trim(),
+        apartment: document.getElementById('apartment').value.trim(),
+        city: document.getElementById('city').value.trim(),
+        state: document.getElementById('state').value.trim(),
+        country: document.getElementById('country').value.trim(),
+        pincode: document.getElementById('pincode').value.trim(),
+    },
+
+    cart_items: getCartArrayFromDOM(),
+
+    pricing: {
+        subtotal: totals.subtotal,
+        shipping: totals.shippingCost,
+        discount: totals.discount,
+        total: totals.total
+    }
+};
+
+try {
+    const res = await axios.post("{{ route('stripe_payment.process') }}", payload);
+    //console.log(res.data);
+
+    if (res.data.success) {
+        // Redirect to Stripe / next step
+        window.location.href = res.data.redirect_url;
+    }
+} catch (err) {
+    console.error(err);
+    alert('Payment processing failed');
+}
+});
+</script>
+
 </body>
 </html>

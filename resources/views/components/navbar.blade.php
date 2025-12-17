@@ -8,6 +8,8 @@
     else{
     $cartCount = 0;
     }
+
+    $removeCartIcon = $removeCartIcon ?? false;
 @endphp
 
 <nav class="flex items-center justify-between px-6 md:px-16 lg:px-32 py-3 border-b border-gray-300 text-gray-700">
@@ -36,14 +38,16 @@
         </a>
 
         {{-- Cart Icon --}}
-        @if (!session('isBuyNowActive'))
-            <button onclick="openCart()" class="relative text-xl">
-                🛒               
-                    <span id="cart-items-count" class="{{ $cartCount > 0 ? 'block' : 'hidden' }} absolute -top-2 -right-2 bg-red-600 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center">
-                        {{ $cartCount }}
-                    </span>                
-            </button>
-        @endif
+        @isset($removeCartIcon)
+            @if (!$removeCartIcon)
+                <button onclick="openCart()" class="relative text-xl">
+                    🛒               
+                        <span id="cart-items-count" class="{{ $cartCount > 0 ? 'block' : 'hidden' }} absolute -top-2 -right-2 bg-red-600 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center">
+                            {{ $cartCount }}
+                        </span>                
+                </button>
+            @endif
+        @endisset
 
         {{-- Slide Cart Component --}}
         @include('components.slide-cart',['cartitems' => $cartitems ?? []])

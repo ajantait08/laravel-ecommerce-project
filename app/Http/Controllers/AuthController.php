@@ -2,10 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
-use App\Models\User;
 
 class AuthController extends Controller
 {
@@ -16,24 +17,79 @@ class AuthController extends Controller
             'firstname' => 'required|string|max:255',
             'lastname' => 'required|string|max:255',
             'email' => 'required|string|email|max:255|unique:users',
+            'phone' => 'required|string|regex:/^\+?[0-9]{7,15}$/',
             'password' => 'required|string|min:8|confirmed', // confirm field must be 'password_confirmation'
         ]);
 
         if ($validator->fails()) {
-            return response()->json([
-                'status' => false,
-                'errors' => $validator->errors(),
-            ], 422);
+            return back()->withErrors($validator)->withInput();
         }
+
+        // echo '<pre>';
+        // print_r($request->all());
+        // echo '</pre>';
+        // exit;
 
         // ✅ Create user
         $user = User::create([
             'firstname' => $request->firstname,
             'lastname' => $request->lastname,
             'email' => $request->email,
+            'phone' => $request->phone,
             'password' => Hash::make($request->password),
         ]);
 
+        //dd($user);
+
+        //exit;
+
+        // Log the user in
+            //Auth::login($user);
+
+            $user = User::where('email', $request->email)->first();
+
+    if (!$user || ! Hash::check($request->password, $user->password)) {
+        return response()->json([
+            'status' => false,
+            'message' => 'Invalid credentials'
+        ], 401);
+    }
+
+    $token = $user->createToken('auth_token')->plainTextToken;
+
+    // Save user data into session AS AN ARRAY
+    session([
+        'user' => [
+            'id'      => $user->id,
+            'firstname' => $user->firstname,
+            'lastname' => $user->lastname,
+            'email'   => $user->email,
+            'phone'   => $user->phone, 
+            'avatar'  => $user->avatar ?? asset('assets/user_icon.svg'),
+        ]
+    ]);
+            // echo '<pre>';
+            // print_r(session('user'));
+            // echo '</pre>';
+            // echo $request->from ?? '/';;
+            // exit;
+
+            // Store the redirect URL in session (same as login flow)
+            //echo $request->has('from'); exit;
+            if ($request->has('from') && $request->get('from') != '') {
+                //echo 'reached here !'; exit;
+                session(['redirect_after_register' => $request->get('from')]);
+
+                // Redirect user to their previous page OR fallback
+                $redirectUrl = session('redirect_after_register', '/dashboard');
+
+                // Cleanup session
+                session()->forget('redirect_after_register');
+    
+                return redirect($redirectUrl);
+            }
+        
+        //echo 'reached here 2 !'; exit;
         // ✅ Generate token
         //$token = $user->createToken('auth_token')->plainTextToken;
 
@@ -54,7 +110,47 @@ class AuthController extends Controller
         'password' => 'required|string|min:8',
     ]);
 
-    $user = \App\Models\User::where('email', $request->email)->first();
+    $user = User::where('email', $request->email)->first();
+
+    if (!$user || ! Hash::check($request->password, $user->password)) {
+        return response()->json([
+            'status' => false,
+            'message' => 'Invalid credentials'
+        ], 401);
+    }
+
+    $token = $user->createToken('auth_token')->plainTextToken;
+
+    // Save user data into session AS AN ARRAY
+    session([
+        'user' => [
+            'id'      => $user->id,
+            'firstname' => $user->firstname,
+            'lastname' => $user->lastname,
+            'email'   => $user->email,
+            'phone' => $user->phone,
+            'avatar'  => $user->avatar ?? asset('assets/user_icon.svg'),
+        ]
+    ]);
+
+    // return response()->json([
+    //     'status' => true,
+    //     'message' => 'Login successful',
+    //     'user' => $user,
+    //     'token' => $token
+    // ]);
+
+    return redirect()->route('dashboard')->with('success', 'Login Successful !, Welcome to Dashboard !');
+}
+
+public function checkoutLogin(Request $request)
+{
+    $credentials = $request->validate([
+        'email' => 'required|email',
+        'password' => 'required|string|min:8',
+    ]);
+
+    $user = User::where('email', $request->email)->first();
 
     if (!$user || ! Hash::check($request->password, $user->password)) {
         return response()->json([
@@ -75,6 +171,11 @@ class AuthController extends Controller
         ]
     ]);
 
+    return response()->json([
+        'success' => true,
+        'redirect_url' => route('checkout'),
+    ]);
+
     // return response()->json([
     //     'status' => true,
     //     'message' => 'Login successful',
@@ -82,7 +183,7 @@ class AuthController extends Controller
     //     'token' => $token
     // ]);
 
-    return redirect()->route('dashboard')->with('success', 'Login Successful !, Welcome to Dashboard !');
+    //return redirect()->route('checkout')->with('success', 'Login Successful !, Welcome to Dashboard !');
 }
 
 public function me(Request $request)
@@ -98,6 +199,16 @@ public function logout()
     session()->flush();
 
     return redirect('/login')->with('success', 'Logged out successfully');
+}
+
+public function checkEmailExists(Request $request){
+    $request->validate([
+        'email' => 'required|email'
+    ]);
+    $exists = User::where('email', $request->email)->exists();
+    return response()->json([
+        'exists' => $exists
+    ]);
 }
 
 }

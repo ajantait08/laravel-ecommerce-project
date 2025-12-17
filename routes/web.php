@@ -6,7 +6,9 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CartController;
 use App\Http\Controllers\HomeController;
+use App\Http\Controllers\StripeController;
 use App\Http\Controllers\WishlistController;
+use App\Http\Controllers\PaymentController;
 
 Route::get('/', function () {
     $products = DB::select('select * from products');
@@ -61,8 +63,11 @@ Route::get('/login', function () {
     return view('login');
 })->name('login');
 
+
+
 Route::get('/register',function(){
-    return view('register');
+    $from = urldecode($_GET['from'] ?? '');
+    return view('register',['from' => $from]);
 })->name('register');
 
 Route::get('/dashboard',function(){
@@ -95,8 +100,16 @@ Route::get('/dashboard',function(){
 
 Route::get('/checkout',function(){
     $user = session('user');
-    $userId = $user['id'];
-    $cartitems = $userId ? app(CartController::class)->getCartItemsNew($userId) : [];
+    $userId = $user['id'] ?? null;
+    $guestId = request()->cookie('guest_cart_id');
+    $cartitems = [];
+    if($userId){
+    if(app(CartController::class)->mergeGuestCartToUserCart($userId,$guestId)){
+        $cartitems = $userId ? app(CartController::class)->getCartItemsNew($userId) : [];
+    }}
+    else{
+        $cartitems = $userId ? app(CartController::class)->getCartItemsNew($userId) : app(CartController::class)->getGuestCartItemsNew($guestId);
+    }
     return view('checkout-main',compact('cartitems'));
 })->name('checkout');
 
@@ -127,4 +140,15 @@ Route::post('/cart/remove/', [CartController::class, 'removeFromCart'])->name('c
 Route::get('/product/{id}',[HomeController::class, 'showProductDetails']) ->name('productDetails.show');
 Route::get('/api/products',[HomeController::class, 'apiBulk'])->name('products.apiBulk');
 Route::get('/delete/cookie',[CartController::class,'deleteCookie'])->name('cookie.delete');
+Route::post('/checkout-login',[AuthController::class,'checkoutLogin']);
+
+
+// Creating Stripe Payment Gateway Routes
+//Route::get('stripe/checkout/{}/{}',[StripeController::class,'checkout'])->name('stripe.checkout');
+Route::post('stripe/process-payment',[PaymentController::class,'processPayment'])->name('stripe_payment.process');
+Route::get('stripe/checkout-session/{userId}/{logId}',[StripeController::class,'session'])->name('stripe.session');
+Route::get('stripe/checkout-success/{userId}/{logId}',[StripeController::class,'success'])->name('stripe.success');
+Route::get('stripe/checkout-cancel/{userId}/{logId}',[StripeController::class,'cancel'])->name('stripe.cancel');
+
+
 

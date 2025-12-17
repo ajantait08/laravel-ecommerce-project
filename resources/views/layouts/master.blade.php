@@ -304,11 +304,11 @@
     // Hook checkout button
     document.getElementById('checkout-btn').addEventListener('click', function () {
         // if you have a checkout route
-        if (!userId) {
-            alert("Please login to proceed to checkout");
-            window.location.href = "/login";
-            return;
-        }
+        // if (!userId) {
+        //     alert("Please login to proceed to checkout");
+        //     window.location.href = "/login";
+        //     return;
+        // }
         window.location.href = '/checkout';
     });
 

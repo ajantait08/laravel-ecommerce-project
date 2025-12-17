@@ -79,15 +79,15 @@
 
     <div class="flex justify-between font-medium">
         <span>Cart Total:</span>
-        <span id="cart-total">{{ $subtotal }}</span>
+        <span id="cart-total">₹{{ $subtotal }}</span>
     </div>
     <div class="flex justify-between font-medium mt-4">
         <span>Subtotal:</span>
-        <span id="cart-subtotal">{{ $subtotal }}</span>
+        <span id="cart-subtotal">₹{{ $subtotal }}</span>
     </div>
 
-    <button id="checkout-btn"
-           class="w-full block text-center py-2 rounded-lg mt-3 bg-blue-600 hover:bg-blue-700 text-white">
+    <button id="checkout-btn" @if(empty($cartitems) || count($cartitems) === 0) disabled @endif
+           class="w-full block text-center py-2 rounded-lg mt-3 bg-blue-600 hover:bg-blue-700 text-white @if(empty($cartitems) || count($cartitems) === 0) disabled:bg-gray-400 disabled:cursor-not-allowed @endif">
         Checkout
     </button>
 </div>
