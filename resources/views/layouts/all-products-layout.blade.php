@@ -12,7 +12,7 @@
     <!-- Icons (FontAwesome CDN) -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 </head>
-<body class="bg-gray-100">
+<body class="bg-gray-100" id="productsContainer">
 
     {{-- Include Navbar here if you want globally --}}
     {{-- @include('components.navbar') --}}
@@ -319,6 +319,93 @@
 
     // Load cart once on script load if you'd like
     // loadCart();
+</script>
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/nouislider@15.7.1/dist/nouislider.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/nouislider@15.7.1/dist/nouislider.min.js"></script>
+
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+        
+        const slider = document.getElementById('priceSlider');
+        
+    
+        noUiSlider.create(slider, {
+            start: [
+                {{ request('min_price', $min_price) }},
+                {{ request('max_price', $max_price) }}
+            ],
+            connect: true,
+            range: {
+                min: {{ request('min_price', $min_price) }},
+                max: {{ request('max_price', $max_price) }}
+            },
+            step: 100,
+            animationDuration: 300,
+            format: {
+                to: value => Math.round(value),
+                from: value => Math.round(value)
+            }
+        });
+    
+        const minLabel = document.getElementById('priceMin');
+        const maxLabel = document.getElementById('priceMax');
+        const minInput = document.getElementById('min_price');
+        const maxInput = document.getElementById('max_price');
+        const form = document.getElementById('filterForm');
+    
+        slider.noUiSlider.on('update', function (values , handle) {
+            console.log("Slider values updated:", values);
+            minLabel.innerText = values[0];
+            maxLabel.innerText = values[1];
+            minInput.value = values[0];
+            maxInput.value = values[1];
+            sliderReady = true;
+            //fetchProducts();
+        });
+    
+        // ✅ Auto submit ONLY when user releases slider
+        slider.noUiSlider.on('end', function () {
+            if (sliderReady) fetchProducts();
+        });
+    });
+    </script>
+
+<script>
+    function fetchProducts(url = null) {
+        const params = new URLSearchParams({
+            min_price: document.getElementById('min_price').value,
+            max_price: document.getElementById('max_price').value,
+            rating: document.querySelector('[name="rating"]:checked')?.value || '',
+            sort: document.querySelector('[name="sort"]')?.value || ''
+        });
+
+        fetch(url || `{{ route('products.filter') }}?${params.toString()}`)
+            .then(res => res.text())
+            .then(html => {
+                console.log("Fetched products HTML:", html);
+                //document.getElementById('productsContainer').innerHTML = html;
+                document.getElementById('updatedProductsSection').innerHTML = html;
+                bindPagination();
+                updateURL(params);
+            });
+    }
+
+    function bindPagination() {
+        document.querySelectorAll('#updatedProductsSection .pagination a').forEach(link => {
+            link.addEventListener('click', function (e) {
+                e.preventDefault();
+                fetchProducts(this.href);
+            });
+        });
+    }
+
+    function updateURL(params) {
+        history.replaceState(null, '', `?${params.toString()}`);
+    }
+
+    bindPagination();
 </script>
         
 </body>

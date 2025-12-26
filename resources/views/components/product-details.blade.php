@@ -4,6 +4,10 @@
 
 @include('components.navbar')
 
+@php
+$user = session('user');
+@endphp
+
 <style>
     .carousel-arrow {
     font-size: 48px;
@@ -81,6 +85,139 @@
 
         </div>
     </div>
+
+    {{-- ================= REVIEWS & RATINGS ================= --}}
+<div class="mt-20">
+
+    <h2 class="text-3xl font-medium text-gray-800">
+        Customer <span class="text-orange-600">Reviews</span>
+    </h2>
+    <div class="w-24 h-0.5 bg-orange-600 mt-2 mb-8"></div>
+
+    {{-- Rating Summary --}}
+    <div class="flex items-center gap-6 mb-10">
+        <div class="text-5xl font-semibold text-gray-800">
+            {{ $averageRating ?? '0.0' }}
+        </div>
+
+        <div>
+            <div class="flex items-center gap-1">
+                @for($i = 1; $i <= 5; $i++)
+                    <svg class="w-6 h-6 {{ $i <= floor($averageRating) ? 'text-orange-500' : 'text-gray-300' }}"
+                         fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.286 3.97a1 1 0 00.95.69h4.173c.969 0 1.371 1.24.588 1.81l-3.377 2.455a1 1 0 00-.364 1.118l1.287 3.97c.3.921-.755 1.688-1.54 1.118l-3.378-2.455a1 1 0 00-1.175 0l-3.378 2.455c-.784.57-1.838-.197-1.539-1.118l1.287-3.97a1 1 0 00-.364-1.118L2.05 9.397c-.783-.57-.38-1.81.588-1.81h4.173a1 1 0 00.95-.69l1.287-3.97z"/>
+                    </svg>
+                @endfor
+            </div>
+
+            <p class="text-gray-500 text-sm mt-1">
+                Based on {{ count($reviews) }} reviews
+            </p>
+        </div>
+    </div>
+
+    <br>
+
+    {{-- Write Review --}}
+@if($user)
+<div class="bg-gray-50 p-6 rounded-lg mb-14 max-w-xl">
+    <h3 class="text-xl font-medium mb-4">Write a Review</h3>
+
+    <form id="reviewForm">
+        @csrf
+        <input type="hidden" name="product_id" value="{{ $product->_id }}">
+        <input type="hidden" name="rating_value" id="ratingValue">
+
+        {{-- Star Selector --}}
+        <div class="flex items-center gap-2 mb-4" id="starSelector">
+            @for($i = 1; $i <= 5; $i++)
+                <svg data-star="{{ $i }}"
+                     class="w-8 h-8 cursor-pointer text-gray-300 hover:text-orange-500"
+                     fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.286 3.97a1 1 0 00.95.69h4.173c.969 0 1.371 1.24.588 1.81l-3.377 2.455a1 1 0 00-.364 1.118l1.287 3.97c.3.921-.755 1.688-1.54 1.118l-3.378-2.455a1 1 0 00-1.175 0l-3.378 2.455c-.784.57-1.838-.197-1.539-1.118l1.287-3.97a1 1 0 00-.364-1.118L2.05 9.397c-.783-.57-.38-1.81.588-1.81h4.173a1 1 0 00.95-.69l1.287-3.97z"/>
+                </svg>
+            @endfor
+        </div>
+
+        <textarea name="review_text"
+                  class="w-full border rounded p-3"
+                  rows="4"
+                  placeholder="Share your experience..."
+                  required></textarea>
+
+        <button type="submit"
+                class="mt-4 px-6 py-2 bg-orange-600 text-white rounded hover:bg-orange-700">
+            Submit Review
+        </button>
+    </form>
+</div>
+@else
+<p class="text-gray-600 mb-4">
+    Please log in to rate and review this product.
+</p>
+
+<a href="{{ route('login', ['redirect' => url()->current()]) }}"
+   class="inline-block px-6 py-2 bg-orange-600 text-white rounded hover:bg-orange-700">
+    Rate The Product
+</a>
+@endif
+
+<br><br><br><br>
+    {{-- Reviews List --}}
+    @if(count($reviews) === 0)
+        <p class="text-gray-500">No reviews yet. Be the first to review this product.</p>
+    @else
+        <div class="space-y-8">
+            @foreach($reviews as $review)
+                <div class="border-b pb-6">
+                    <div class="flex items-center justify-between">
+                        <p class="font-medium text-gray-800">
+                            @php
+                                $user_id = $review->user_id;
+                                $user_name_details = DB::select('select firstname,lastname from users where id = ?',[$user_id]);
+                                //print_r($user_name_details);
+                                $username = '';
+                                if($user_name_details[0]->firstname != ''){
+                                    $username = $user_name_details[0]->firstname;
+                                }
+                                else{
+                                    $username = '';  
+                                }
+
+                                if($user_name_details[0]->lastname != ''){
+                                    $username .= ' '.$user_name_details[0]->lastname;
+                                }
+                                else{
+                                    $username .= '';  
+                                }
+                            @endphp
+                            User #{{ $username }}
+                        </p>
+                        <span class="text-sm text-gray-500">
+                            {{ \Carbon\Carbon::parse($review->review_date)->format('d M Y') }}
+                        </span>
+                    </div>
+
+                    {{-- Stars --}}
+                    <div class="flex items-center gap-1 mt-1">
+                        @for($i = 1; $i <= 5; $i++)
+                            <svg class="w-4 h-4 {{ $i <= $review->rating ? 'text-orange-500' : 'text-gray-300' }}"
+                                 fill="currentColor" viewBox="0 0 20 20">
+                                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.286 3.97a1 1 0 00.95.69h4.173c.969 0 1.371 1.24.588 1.81l-3.377 2.455a1 1 0 00-.364 1.118l1.287 3.97c.3.921-.755 1.688-1.54 1.118l-3.378-2.455a1 1 0 00-1.175 0l-3.378 2.455c-.784.57-1.838-.197-1.539-1.118l1.287-3.97a1 1 0 00-.364-1.118L2.05 9.397c-.783-.57-.38-1.81.588-1.81h4.173a1 1 0 00.95-.69l1.287-3.97z"/>
+                            </svg>
+                        @endfor
+                    </div>
+
+                    <p class="mt-3 text-gray-600">
+                        {{ $review->review }}
+                    </p>
+                </div>
+            @endforeach
+        </div>
+    @endif
+</div>
+{{-- ================= END REVIEWS ================= --}}
+
 
     {{-- Recently Viewed Section --}}
 {{-- Recently Viewed Section --}}
@@ -184,7 +321,64 @@ document.addEventListener("DOMContentLoaded", function () {
     updateArrows();
 });
 </script>
+
 @endif
+
+<script>
+    document.addEventListener("DOMContentLoaded", () => {
+    
+        const stars = document.querySelectorAll("#starSelector svg");
+        const ratingInput = document.getElementById("ratingValue");
+        const reviewForm = document.getElementById("reviewForm");
+    
+        stars.forEach(star => {
+            star.addEventListener("click", () => {
+                ratingInput.value = star.dataset.star;
+    
+                stars.forEach(s => {
+                    s.classList.toggle("text-orange-500", s.dataset.star <= ratingInput.value);
+                    s.classList.toggle("text-gray-300", s.dataset.star > ratingInput.value);
+                });
+            });
+        });
+    
+        reviewForm.addEventListener("submit", function (e) {
+            e.preventDefault();
+    
+            if (!ratingInput.value) {
+                alert("Please select a rating");
+                return;
+            }
+    
+            const payload = {
+                product_id: reviewForm.querySelector('input[name="product_id"]').value,
+                rating_value: ratingInput.value,
+                review_text: reviewForm.querySelector('textarea[name="review_text"]').value
+            };
+    
+            fetch("{{ route('reviews.store') }}", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-CSRF-TOKEN": "{{ csrf_token() }}",
+                    "Accept": "application/json"
+                },
+                body: JSON.stringify(payload)
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    document.getElementById('reviewForm').reset();
+                    alert("Review submitted successfully!");
+                    location.reload();
+                }
+            })
+            .catch(() => alert("Something went wrong"));
+        });
+    });
+    </script>
+    
+
 
 
 

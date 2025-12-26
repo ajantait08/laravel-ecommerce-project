@@ -184,7 +184,8 @@ public function showProductDetails($productId = "")
             $deleteUserIds = array_column($deleteUserExtra,'id');
             if(!empty($deleteUserIds)){
                 $placeholders = implode(',',array_fill(0,count($deleteUserIds),'?'));
-                DB::delete("DELETE FROM recently_viewed where id IN $placeholders",$deleteUserIds);
+                // Debug for seeing why received error for this line
+                //DB::delete("DELETE FROM recently_viewed where id IN $placeholders",$deleteUserIds);
             }
         }
 
@@ -299,9 +300,12 @@ public function showProductDetails($productId = "")
         }
     }
 
+        $reviews = collect(DB::select('select * from reviews_rating where product_id = ? order by review_date desc', [$productId]));
+        $averageRating = round($reviews->avg('rating'), 1);
+
         $cartitems = $userId ? app(CartController::class)->getCartItemsNew($userId) : app(CartController::class)->getGuestCartItemsNew($guestId);
 
-        return view('product-details-main', ['product' => $product , 'cartitems' => $cartitems , 'recentProducts' => $recentProducts]);
+        return view('product-details-main', ['product' => $product , 'cartitems' => $cartitems , 'recentProducts' => $recentProducts , 'reviews' => $reviews , 'averageRating' => $averageRating]);
     }
 
     public function getRecentlyViewedProducts($userId){

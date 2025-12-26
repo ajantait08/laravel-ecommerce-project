@@ -3,12 +3,13 @@
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AuthController;
-use App\Http\Controllers\WishlistController;
 use App\Http\Controllers\CartController;
-use App\Http\Controllers\CouponController;
-use App\Http\Controllers\OrderDetailsController;
-use App\Http\Controllers\ContactUsController;
 use App\Http\Controllers\EmailController;
+use App\Http\Controllers\CouponController;
+use App\Http\Controllers\StripeController;
+use App\Http\Controllers\WishlistController;
+use App\Http\Controllers\ContactUsController;
+use App\Http\Controllers\OrderDetailsController;
 
 Route::get('/user', function (Request $request) {
     return $request->user();
@@ -38,4 +39,6 @@ Route::post('/store_temp_checkout_session',[OrderDetailsController::class,'store
 Route::get('/checkout-session/{sessionId}',[OrderDetailsController::class,'getTempSessionData']);
 Route::post('/make_all_temp_session_inactive',[OrderDetailsController::class,'makeAllTempSessionsInactive']);
 Route::post('/temp_sessions_item/update',[CartController::class,'updateTempSessionItemQuantity']);
+Route::post('/create-payment-intent', [StripeController::class, 'createPaymentIntent']);
+
 

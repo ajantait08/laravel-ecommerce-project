@@ -1,3 +1,7 @@
+@php
+    $rating = $product->avg_rating ?? 0;
+    $fullStars = floor($rating);
+@endphp
 <div class="border rounded-lg p-3 hover:shadow-md transition cursor-pointer">
 
     <a href="{{ url('/product/' . $product->_id) }}">
@@ -38,11 +42,27 @@
         @endif
 
         {{-- Rating --}}
-        <div class="flex items-center gap-2 mt-1">
+        {{-- <div class="flex items-center gap-2 mt-1">
             <p class="text-xs">4.5</p>
             <div class="flex items-center gap-0.5">
                 @for ($i = 0; $i < 5; $i++)
                     @if ($i < 4)
+                        <img src="{{ asset('assets/star_icon.svg') }}" class="h-3 w-3" alt="star">
+                    @else
+                        <img src="{{ asset('assets/star_dull_icon.svg') }}" class="h-3 w-3" alt="star">
+                    @endif
+                @endfor
+            </div>
+        </div> --}}
+
+        <div class="flex items-center gap-2 mt-1">
+            <p class="text-xs">
+                {{ $rating > 0 ? number_format($rating, 1) : 'No ratings' }}
+            </p>
+        
+            <div class="flex items-center gap-0.5">
+                @for ($i = 1; $i <= 5; $i++)
+                    @if ($i <= $fullStars)
                         <img src="{{ asset('assets/star_icon.svg') }}" class="h-3 w-3" alt="star">
                     @else
                         <img src="{{ asset('assets/star_dull_icon.svg') }}" class="h-3 w-3" alt="star">

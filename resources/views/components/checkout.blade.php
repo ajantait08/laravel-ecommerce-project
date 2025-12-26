@@ -23,6 +23,15 @@ $user = session('user');
   </script> --}}
 
   <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  <script src="https://js.stripe.com/v3/"></script>
+
+<script>
+    window.Laravel = {
+        csrfToken: "{{ csrf_token() }}",
+        stripePublicKey: "{{ config('services.stripe.key') }}"
+    };
+</script>
+
 </head>
 <body class="bg-white text-gray-800">
   {{-- include your Navbar if needed --}}
@@ -229,7 +238,7 @@ $user = session('user');
       {{-- Stripe placeholder / will be injected by JS --}}
       {{-- <div id="stripe-container" class="mt-4"> --}}
         <!-- Payment Gateway Field -->
-<div class="mt-4">
+{{-- <div class="mt-4">
   <label class="block font-bold mt-4">Payment Gateway *</label>
   <input 
       type="text" 
@@ -238,16 +247,38 @@ $user = session('user');
       value="Stripe" 
       disabled
   />
-</div>
+</div> --}}
 
 <!-- Continue Button -->
-<button 
+{{-- <button 
   id="continue-btn"
   class="mt-4 w-full py-3 bg-gray-400 text-white rounded cursor-not-allowed"
   disabled
 >
   Continue To Payment
-</button>
+</button> --}}
+<!-- Loading Indicator -->
+<div id="loading-indicator" class="mt-10 text-center hidden">
+  <p class="text-black-600 font-bold">Loading payment options...</p>
+</div>
+<!-- Loading Indicator -->
+<!-- Stripe Payment Element -->
+<div id="stripe-container" class="mt-6 hidden">
+  <form id="payment-form" class="space-y-4">
+      <div id="payment-element" class="p-4 border rounded bg-white"></div>
+
+      <p id="stripe-error" class="text-red-500 text-sm"></p>
+
+      <button
+          id="pay-now-btn"
+          type="submit"
+          class="w-full py-3 bg-green-600 text-white rounded hover:bg-green-700"
+      >
+          Pay Now
+      </button>
+  </form>
+</div>
+
       {{-- </div> --}}
     </div>
   </div>
@@ -347,6 +378,22 @@ function validateForm() {
     //document.getElementById('final-total').innerText = '₹' + total.toFixed(2);
     // Uncomment Later
     return {subtotal: subtotalVal, shippingCost, discount, total};
+  }
+
+  function gatherFormData() {
+    return {
+      email: document.getElementById('email').value.trim(),
+      phone: document.getElementById('phone').value.trim(),
+      firstName: document.getElementById('firstName').value.trim(),
+      lastName: document.getElementById('lastName').value.trim(),
+      country: document.getElementById('country').value.trim(),
+      street: document.getElementById('street').value.trim(),
+      apartment: document.getElementById('apartment').value.trim(),
+      city: document.getElementById('city').value.trim(),
+      state: document.getElementById('state').value.trim(),
+      pincode: document.getElementById('pincode').value.trim(),
+      notes: '',
+    };
   }
 
 document.addEventListener('DOMContentLoaded', function() {
@@ -548,7 +595,7 @@ streetInput.addEventListener('input', async function (e) {
 function checkPincodeAndToggleContinue() {
     const pincode = document.getElementById('pincode').value.trim();
     const address = document.getElementById('street').value.trim();
-    const btn = document.getElementById('continue-btn');
+    //const btn = document.getElementById('continue-btn');
 
     // if (/^\d{6}$/.test(pincode)) {
     //     btn.disabled = false;
@@ -562,13 +609,17 @@ function checkPincodeAndToggleContinue() {
 
     const totals = recalcTotals();
     if (totals.total > 0 && /^\d{6}$/.test(pincode) && address.length > 0) {
-        btn.disabled = false;
-        btn.classList.remove('bg-gray-400', 'cursor-not-allowed');
-        btn.classList.add('bg-green-600', 'hover:bg-green-700');
+      document.getElementById('loading-indicator').classList.remove('hidden');
+      //if (!clientSecretLoaded) {
+        initStripePayment();
+    //}
+        // btn.disabled = false;
+        // btn.classList.remove('bg-gray-400', 'cursor-not-allowed');
+        // btn.classList.add('bg-green-600', 'hover:bg-green-700');
     } else {
-        btn.disabled = true;
-        btn.classList.add('bg-gray-400', 'cursor-not-allowed');
-        btn.classList.remove('bg-green-600', 'hover:bg-green-700');
+        // btn.disabled = true;
+        // btn.classList.add('bg-gray-400', 'cursor-not-allowed');
+        // btn.classList.remove('bg-green-600', 'hover:bg-green-700');
     }
 }
 
@@ -585,109 +636,177 @@ if (document.readyState === 'loading') {
   checkPincodeAndToggleContinue();
 }
   // Stripe integration: create payment intent when user clicks Pay
-  let stripe = Stripe(window.Laravel.stripePublicKey);
-  let elements;
+  //let stripe = Stripe(window.Laravel.stripePublicKey);
+  //let elements;
 
-  async function createAndMountPaymentElement(clientSecret) {
-    const options = { clientSecret };
-    elements = stripe.elements(options);
-    const paymentElement = elements.create('payment');
-    const container = document.getElementById('stripe-container');
-    container.innerHTML = '<form id="stripe-payment-form" class="mt-6 space-y-4"><div id="payment-element"></div><p id="stripe-error" class="text-red-500"></p><button id="pay-btn" class="w-full py-2 rounded-lg font-semibold bg-green-600 text-white">Pay Now</button></form>';
-    paymentElement.mount('#payment-element');
+  // async function createAndMountPaymentElement(clientSecret) {
+  //   const options = { clientSecret };
+  //   elements = stripe.elements(options);
+  //   const paymentElement = elements.create('payment');
+  //   const container = document.getElementById('stripe-container');
+  //   container.innerHTML = '<form id="stripe-payment-form" class="mt-6 space-y-4"><div id="payment-element"></div><p id="stripe-error" class="text-red-500"></p><button id="pay-btn" class="w-full py-2 rounded-lg font-semibold bg-green-600 text-white">Pay Now</button></form>';
+  //   paymentElement.mount('#payment-element');
 
-    document.getElementById('stripe-payment-form').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const payBtn = document.getElementById('pay-btn');
-      payBtn.disabled = true;
-      // validate form fields client-side
-      if (!validateForm()) { 
-      document.getElementById('stripe-error').innerText = 'Please fix form errors'; payBtn.disabled = false; return; }
+  //   document.getElementById('stripe-payment-form').addEventListener('submit', async (e) => {
+  //     e.preventDefault();
+  //     const payBtn = document.getElementById('pay-btn');
+  //     payBtn.disabled = true;
+  //     // validate form fields client-side
+  //     if (!validateForm()) { 
+  //     document.getElementById('stripe-error').innerText = 'Please fix form errors'; payBtn.disabled = false; return; }
 
-      // Save preliminary order to backend (before confirm)
-      const totals = recalcTotals();
-      const formData = gatherFormData();
-      try {
-        const saveRes = await axios.post('/api/save-order-details', {
-          form: formData,
-          cart_items: getCartArrayFromDOM(),
-          total_amount: totals.total,
-          shipping_cost: totals.shippingCost,
-          payment_intent_id: '',
-          payment_status: '',
-          applied_coupon: window.checkoutDiscount ? { code: document.getElementById('coupon-code').value, discount: window.checkoutDiscount } : null,
-          user_id: null,
-          user_email: formData.email || null
-        });
-        const user_info_id = saveRes.data.user_info_id;
-        localStorage.setItem('user_info_id', user_info_id);
-      } catch (err) {
-        console.error('Error saving order', err);
-      }
+  //     // Save preliminary order to backend (before confirm)
+  //     const totals = recalcTotals();
+  //     const formData = gatherFormData();
+  //     try {
+  //       const saveRes = await axios.post('/api/save-order-details', {
+  //         form: formData,
+  //         cart_items: getCartArrayFromDOM(),
+  //         total_amount: totals.total,
+  //         shipping_cost: totals.shippingCost,
+  //         payment_intent_id: '',
+  //         payment_status: '',
+  //         applied_coupon: window.checkoutDiscount ? { code: document.getElementById('coupon-code').value, discount: window.checkoutDiscount } : null,
+  //         user_id: null,
+  //         user_email: formData.email || null
+  //       });
+  //       const user_info_id = saveRes.data.user_info_id;
+  //       localStorage.setItem('user_info_id', user_info_id);
+  //     } catch (err) {
+  //       console.error('Error saving order', err);
+  //     }
 
-      // submit payment
-      const {error} = await elements.submit();
-      if (error) {
-        document.getElementById('stripe-error').innerText = error.message || 'Payment error';
-        payBtn.disabled = false;
-        return;
-      }
+  //     // submit payment
+  //     const {error} = await elements.submit();
+  //     if (error) {
+  //       document.getElementById('stripe-error').innerText = error.message || 'Payment error';
+  //       payBtn.disabled = false;
+  //       return;
+  //     }
 
-      const confirm = await stripe.confirmPayment({
-        elements,
-        confirmParams: {
-          return_url: window.location.origin + '/payment-success?amount=' + Math.round(totals.total) + '&user_info_id=' + btoa(localStorage.getItem('user_info_id') || '')
-        },
-      });
+  //     const confirm = await stripe.confirmPayment({
+  //       elements,
+  //       confirmParams: {
+  //         return_url: window.location.origin + '/payment-success?amount=' + Math.round(totals.total) + '&user_info_id=' + btoa(localStorage.getItem('user_info_id') || '')
+  //       },
+  //     });
 
-      if (confirm.error) {
-        document.getElementById('stripe-error').innerText = confirm.error.message || 'Payment failed';
-        payBtn.disabled = false;
-      }
-    });
-  }
+  //     if (confirm.error) {
+  //       document.getElementById('stripe-error').innerText = confirm.error.message || 'Payment failed';
+  //       payBtn.disabled = false;
+  //     }
+  //   });
+  // }
 
-  function gatherFormData() {
-    return {
-      email: document.getElementById('email').value.trim(),
-      phone: document.getElementById('phone').value.trim(),
-      firstName: document.getElementById('firstName').value.trim(),
-      lastName: document.getElementById('lastName').value.trim(),
-      country: document.getElementById('country').value.trim(),
-      street: document.getElementById('street').value.trim(),
-      apartment: document.getElementById('apartment').value.trim(),
-      city: document.getElementById('city').value.trim(),
-      state: document.getElementById('state').value.trim(),
-      pincode: document.getElementById('pincode').value.trim(),
-      notes: '',
-    };
-  }
+  
 
   // When user clicks any button to start payment creation: we will create payment intent on demand
   // Instead: show a "Start payment" button in stripe container (if not created)
-  const stripeContainer = document.getElementById('stripe-container');
-  const startBtn = document.createElement('button');
-  startBtn.className = 'w-full py-2 rounded-lg font-semibold bg-green-600 text-white';
-  startBtn.innerText = 'Proceed to Payment';
-  startBtn.addEventListener('click', async (e) => {
-    e.preventDefault();
-    if (!validateForm()) return;
-    const totals = recalcTotals();
-    const amountPaise = Math.round(totals.total * 100);
-    startBtn.disabled = true;
-    try {
-      const res = await axios.post('/api/create-payment-intent', { amount: amountPaise, billing: gatherFormData() });
-      const clientSecret = res.data.clientSecret;
-      await createAndMountPaymentElement(clientSecret);
-    } catch (err) {
-      console.error('create payment intent error', err);
-      alert('Could not start payment. Please try again.');
-      startBtn.disabled = false;
-    }
-  });
-  stripeContainer.appendChild(startBtn);
+//   const stripeContainer = document.getElementById('stripe-container');
+//   const startBtn = document.createElement('button');
+//   startBtn.className = 'w-full py-2 rounded-lg font-semibold bg-green-600 text-white';
+//   startBtn.innerText = 'Proceed to Payment';
+//   startBtn.addEventListener('click', async (e) => {
+//     e.preventDefault();
+//     if (!validateForm()) return;
+//     const totals = recalcTotals();
+//     const amountPaise = Math.round(totals.total * 100);
+//     startBtn.disabled = true;
+//     try {
+//       const res = await axios.post('/api/create-payment-intent', { amount: amountPaise, billing: gatherFormData() });
+//       const clientSecret = res.data.clientSecret;
+//       await createAndMountPaymentElement(clientSecret);
+//     } catch (err) {
+//       console.error('create payment intent error', err);
+//       alert('Could not start payment. Please try again.');
+//       startBtn.disabled = false;
+//     }
+//   });
+//   stripeContainer.appendChild(startBtn);
 });
 </script>
+
+<script>
+  let stripe = null;
+  let elements = null;
+  let clientSecretLoaded = false;
+  </script>
+
+<script>
+  
+  async function initStripePayment() { // clear previous
+      console.log('Initializing Stripe Payment...');
+      if (!validateForm()) {
+          alert('Please fix billing errors');
+          return;
+      }
+  
+      const totals = recalcTotals();
+      if (totals.total <= 0) return;
+  
+      // Create PaymentIntent
+      const res = await axios.post('/api/create-payment-intent', {
+          user_id: "{{ $user['id'] ?? null}}",
+          payment_gateway: 'Stripe',
+          amount: Math.round(totals.total * 100), // paise
+          //billing: gatherFormData(),
+          billing: {
+            email: document.getElementById('email').value.trim(),
+            phone: document.getElementById('phone').value.trim(),
+            first_name: document.getElementById('firstName').value.trim(),
+            last_name: document.getElementById('lastName').value.trim(),
+            street: document.getElementById('street').value.trim(),
+            apartment: document.getElementById('apartment').value.trim(),
+            city: document.getElementById('city').value.trim(),
+            state: document.getElementById('state').value.trim(),
+            country: document.getElementById('country').value.trim(),
+            pincode: document.getElementById('pincode').value.trim(),
+          },
+          cart_items: getCartArrayFromDOM(),
+          pricing:{
+            subtotal: totals.subtotal,
+            shipping: totals.shippingCost,
+            discount: totals.discount,
+            total: totals.total
+          }
+      });
+  
+      const clientSecret = res.data.clientSecret;
+  
+      stripe = Stripe(window.Laravel.stripePublicKey);
+      elements = stripe.elements({ clientSecret });
+  
+      const paymentElement = elements.create('payment');
+      paymentElement.mount('#payment-element');
+  
+      document.getElementById('stripe-container').classList.remove('hidden');
+      document.getElementById('loading-indicator').classList.add('hidden');
+      clientSecretLoaded = true;
+  }
+
+</script>
+
+<script>  
+  // Submit payment
+  document.getElementById('payment-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+  
+      document.getElementById('pay-now-btn').disabled = true;
+  
+      const { error } = await stripe.confirmPayment({
+          elements,
+          confirmParams: {
+              return_url: "{{ url('/payment-success') }}"
+          }
+      });
+  
+      if (error) {
+          document.getElementById('stripe-error').innerText = error.message;
+          document.getElementById('pay-now-btn').disabled = false;
+      }
+  });
+  </script>
+  
 
 @if(!$user)
 <script>
@@ -757,7 +876,7 @@ document.getElementById('customer-login-btn').addEventListener('click', async fu
 </script>
 @endif
 
-<script>
+{{-- <script>
   document.getElementById('continue-btn').addEventListener('click', async function () {
 
     const totals = recalcTotals();
@@ -810,7 +929,7 @@ try {
     alert('Payment processing failed');
 }
 });
-</script>
+</script> --}}
 
 </body>
 </html>
